@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use risc0_zkvm::*;
-use snafu::*;
+use risc0_zkvm::Receipt;
+use snafu::Snafu;
 
 /// Deserialization error
 #[derive(Debug, Snafu)]

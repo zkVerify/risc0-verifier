@@ -13,13 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 mod deserializer;
 mod proof;
 
-use deserializer::*;
+use deserializer::{deserialize, DeserializeError};
 pub use proof::ProofRawData;
-use risc0_zkvm::*;
-use snafu::*;
+use snafu::Snafu;
 
 /// Deserialization error.
 #[derive(Debug, Snafu)]
@@ -56,6 +57,6 @@ impl From<[u32; 8]> for Vk {
 }
 
 pub fn verify(proof: ProofRawData, image_id: Vk) -> Result<(), VerifyError> {
-    let receipt = deserialize(&proof)?;
+    let receipt = deserialize(proof)?;
     receipt.verify(image_id.0).map_err(Into::into)
 }
