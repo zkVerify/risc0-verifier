@@ -1,0 +1,24 @@
+[package]
+name = "risc0-verifier"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/HorizenLabs/risc0-verifier"
+authors = ["Horizen <info@horizen.io>"]
+description = "A Rust library to verify risc0 STARK proofs"
+keywords = ["crypto", "no-std", "blockchain", "cryptography", "risc0"]
+
+[dependencies]
+risc0-zkvm = { version = "0.21.0", default-features = false }
+risc0-zkp = "0.21.0"
+bincode = "1.3"
+snafu = { version = "0.7.5", default-features = false }
+serde = "1.0.197"
+
+[dev-dependencies]
+serde_json = "1.0.114"
+serde = "1.0.197"
+hex = "0.4.3"
+rstest = "0.20.0"
+
+[features]
