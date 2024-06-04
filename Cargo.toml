@@ -2,7 +2,6 @@
 name = "risc0-verifier"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.60"
 license = "Apache-2.0"
 repository = "https://github.com/HorizenLabs/risc0-verifier"
 authors = ["Horizen <info@horizen.io>"]

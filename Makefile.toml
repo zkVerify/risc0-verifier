@@ -19,15 +19,16 @@ command = "cargo"
 args = ["test"]
 
 [tasks.format_inst]
+[tasks.format-inst]
 install_crate = { crate_name = "rustfmt", rustup_component_name = "rustfmt", binary = "rustfmt", test_arg = "--help" }
 
 [tasks.format]
-dependencies = ["format_inst"]
+dependencies = ["format-inst"]
 command = "cargo"
 args = ["fmt"]
 
 [tasks.format-check]
-dependencies = ["format_inst"]
+dependencies = ["format-inst"]
 command = "cargo"
 args = ["fmt", "--check"]
 
@@ -60,11 +61,6 @@ args = ["audit"]
 command = "cargo"
 args = ["llvm-cov", "--workspace", "--lcov", "--output-path", "lcov.info"]
 
-[tasks.bench]
-dependencies = ["test"]
-command = "cargo"
-args = ["bench"]
-
 [tasks.udeps-inst]
 command = "cargo"
 args = ["install", "cargo-udeps", "--locked"]
@@ -77,9 +73,7 @@ args = ["udeps", "--all-targets"]
 
 
 [tasks.ci]
-#dependencies = ["build", "test", "format", "header-add", "clippy", "audit"]
-dependencies = ["build", "test", "format", "clippy", "audit"]
+dependencies = ["build", "test", "format", "header-add", "clippy", "audit"]
 
 [tasks.ci-remote]
-#dependencies = ["build", "test", "format-check", "header-check", "clippy", "audit"]
-dependencies = ["build", "test", "format-check", "clippy", "audit"]
+dependencies = ["build", "test", "format-check", "header-check", "clippy", "audit"]

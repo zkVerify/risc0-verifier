@@ -1,15 +1,28 @@
 # risc0-verifier
 
-A verifier for [RISC-Zero](https://github.com/risc0/risc0) STARK proofs. This crate
+A verifier for [RISC-Zero](https://github.com/risc0/risc0) STARK proofs.
 
 This crate provides a way for deserializing the proof and the verification key (aka image id) and a function to check if the proof is correct:
 
 ```rust
-    use risc0_verifier::{verify, ProofRawData};
+    use risc0_verifier::{verify};
+    use serde::Deserialize;
 
-    let (proof_raw_data, image_id_data): (ProofRawData, [u32; 8]) = load_data(&path);
+    #[derive(Deserialize)]
+    struct Data {
+        proof_raw_data: String,
+        image_id: [u32; 8],
+    }
 
-    assert!(verify(proof_raw_data, image_id_data.into()).is_ok());
+    let Data {
+        proof_raw_data,
+        image_id,
+    } = serde_json::from_reader(std::fs::File::open("./resources/valid_proof_1.json").unwrap())
+        .unwrap();
+
+    let proof_raw_data = <Vec<u8>>::try_from(hex::decode(proof_raw_data).unwrap()).unwrap();
+
+    assert!(verify(&proof_raw_data, image_id.into()).is_ok());
 ```
 
 ## Develop

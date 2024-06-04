@@ -13,5 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// The proof raw data (a serialized `risc0_zkvm::Receipt`).
-pub type ProofRawData<'a> = &'a [u8];
+/// The verification key (aka image id, the hash of the guest program)
+pub struct Vk(pub risc0_zkp::core::digest::Digest);
+
+impl From<[u32; risc0_zkp::core::digest::DIGEST_WORDS]> for Vk {
+    fn from(value: [u32; risc0_zkp::core::digest::DIGEST_WORDS]) -> Self {
+        Self(value.into())
+    }
+}
