@@ -5,24 +5,24 @@ A verifier for [RISC-Zero](https://github.com/risc0/risc0) STARK proofs.
 This crate provides a way for deserializing the proof and the verification key (aka image id) and a function to check if the proof is correct:
 
 ```rust
-    use risc0_verifier::{verify};
+    use risc0_verifier::{verify, extract_pubs_from_full_proof};
     use serde::Deserialize;
 
     #[derive(Deserialize)]
     struct Data {
-        proof_raw_data: String,
         image_id: [u32; 8],
+        full_proof: String,
     }
 
     let Data {
-        proof_raw_data,
         image_id,
-    } = serde_json::from_reader(std::fs::File::open("./resources/valid_proof_1.json").unwrap())
-        .unwrap();
+        full_proof,
+    } = serde_json::from_reader(std::fs::File::open("./resources/valid_proof_1.json").unwrap()).unwrap();
 
-    let proof_raw_data = <Vec<u8>>::try_from(hex::decode(proof_raw_data).unwrap()).unwrap();
+    let full_proof = <Vec<u8>>::try_from(hex::decode(full_proof).unwrap()).unwrap();
+    let pubs = extract_pubs_from_full_proof(&full_proof).unwrap();
 
-    assert!(verify(&proof_raw_data, image_id.into()).is_ok());
+    assert!(verify(image_id.into(), &full_proof, pubs).is_ok());
 ```
 
 ## Develop

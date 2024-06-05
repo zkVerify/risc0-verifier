@@ -21,9 +21,10 @@ mod deserializer;
 mod key;
 mod proof;
 
-use deserializer::{deserialize, DeserializeError};
+pub use deserializer::extract_pubs_from_full_proof;
+use deserializer::{deserialize, extract_pubs_from_receipt, DeserializeError};
 pub use key::Vk;
-pub use proof::ProofRawData;
+pub use proof::{FullProof, PublicInputs};
 use snafu::Snafu;
 
 /// Deserialization error.
@@ -36,6 +37,9 @@ pub enum VerifyError {
         #[snafu(source)]
         cause: DeserializeError,
     },
+    /// Mismatching public inputs
+    #[snafu(display("Mismatching public inputs"))]
+    MismatchingPublicInputs,
     /// Verification failure
     #[snafu(display("Failed to verify: [{}]", cause))]
     Failure {
@@ -56,11 +60,16 @@ impl From<risc0_zkp::verify::VerificationError> for VerifyError {
     }
 }
 
-/// Verify the given proof raw data `proof` using verification key `image_id`.
+/// Verify the given proof and public inputs `full_proof` using verification key `image_id`.
 /// Can fail if:
-/// - the raw proof data is not serializable as a `risc0_zkvm::Receipt`
+/// - the full proof is not serializable as a `risc0_zkvm::Receipt`
 /// - the receipt is not valid for the given verification key
-pub fn verify(raw_proof_data: ProofRawData, image_id: Vk) -> Result<(), VerifyError> {
-    let receipt = deserialize(raw_proof_data)?;
-    receipt.verify(image_id.0).map_err(Into::into)
+pub fn verify(image_id: Vk, full_proof: FullProof, pubs: PublicInputs) -> Result<(), VerifyError> {
+    let receipt = deserialize(full_proof)?;
+    let extracted_pubs = extract_pubs_from_receipt(&receipt)?;
+    if pubs == extracted_pubs {
+        receipt.verify(image_id.0).map_err(Into::into)
+    } else {
+        Err(VerifyError::MismatchingPublicInputs)
+    }
 }

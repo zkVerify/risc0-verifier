@@ -13,19 +13,48 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::proof::{FullProof, PublicInputs};
 use risc0_zkvm::Receipt;
 use snafu::Snafu;
 
 /// Deserialization error
 #[derive(Debug, Snafu)]
 pub enum DeserializeError {
-    #[snafu(display("Invalid data for deserialization: [{:?}...{:?}]", first, last))]
-    InvalidData { first: Option<u8>, last: Option<u8> },
+    #[snafu(display("Invalid data for deserialization"))]
+    InvalidData,
+    #[snafu(display("Invalid public inputs for deserialization"))]
+    InvalidPublicInputs,
 }
 
 pub fn deserialize(byte_stream: &[u8]) -> Result<Receipt, DeserializeError> {
-    bincode::deserialize(byte_stream).map_err(|_x| DeserializeError::InvalidData {
-        first: byte_stream.first().copied(),
-        last: byte_stream.last().copied(),
-    })
+    bincode::deserialize(byte_stream).map_err(|_x| DeserializeError::InvalidData)
+}
+
+/// Extract public inputs from full proof
+pub fn extract_pubs_from_full_proof(
+    full_proof: FullProof,
+) -> Result<PublicInputs, DeserializeError> {
+    let receipt = deserialize(full_proof)?;
+
+    let mut pubs: PublicInputs = [0; 32];
+    let len = receipt.journal.bytes.len();
+    if len <= 32 {
+        pubs[..len].copy_from_slice(&receipt.journal.bytes[..len]);
+    } else {
+        return Err(DeserializeError::InvalidPublicInputs);
+    }
+
+    Ok(pubs)
+}
+
+pub fn extract_pubs_from_receipt(receipt: &Receipt) -> Result<PublicInputs, DeserializeError> {
+    let mut pubs: PublicInputs = [0; 32];
+    let len = receipt.journal.bytes.len();
+    if len <= 32 {
+        pubs[..len].copy_from_slice(&receipt.journal.bytes[..len]);
+    } else {
+        return Err(DeserializeError::InvalidPublicInputs);
+    }
+
+    Ok(pubs)
 }
