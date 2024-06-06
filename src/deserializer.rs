@@ -13,48 +13,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::proof::{FullProof, PublicInputs};
-use risc0_zkvm::Receipt;
+use risc0_zkvm::{InnerReceipt, Journal, Receipt};
 use snafu::Snafu;
 
 /// Deserialization error
 #[derive(Debug, Snafu)]
 pub enum DeserializeError {
-    #[snafu(display("Invalid data for deserialization"))]
-    InvalidData,
+    /// Invalid proof
+    #[snafu(display("Invalid proof for deserialization"))]
+    InvalidProof,
+    /// Invalid public inputs
     #[snafu(display("Invalid public inputs for deserialization"))]
     InvalidPublicInputs,
 }
 
-pub fn deserialize(byte_stream: &[u8]) -> Result<Receipt, DeserializeError> {
-    bincode::deserialize(byte_stream).map_err(|_x| DeserializeError::InvalidData)
+pub fn deserialize_full_proof(proof: &[u8], pubs: &[u8]) -> Result<Receipt, DeserializeError> {
+    let inner_receipt_des = deserialize_proof(proof)?;
+    let journal_des = deserialize_pubs(pubs)?;
+    Ok(Receipt {
+        inner: inner_receipt_des,
+        journal: journal_des,
+    })
 }
 
-/// Extract public inputs from full proof
-pub fn extract_pubs_from_full_proof(
-    full_proof: FullProof,
-) -> Result<PublicInputs, DeserializeError> {
-    let receipt = deserialize(full_proof)?;
-
-    let mut pubs: PublicInputs = [0; 32];
-    let len = receipt.journal.bytes.len();
-    if len <= 32 {
-        pubs[..len].copy_from_slice(&receipt.journal.bytes[..len]);
-    } else {
-        return Err(DeserializeError::InvalidPublicInputs);
-    }
-
-    Ok(pubs)
+fn deserialize_proof(proof: &[u8]) -> Result<InnerReceipt, DeserializeError> {
+    bincode::deserialize(proof).map_err(|_x| DeserializeError::InvalidProof)
 }
 
-pub fn extract_pubs_from_receipt(receipt: &Receipt) -> Result<PublicInputs, DeserializeError> {
-    let mut pubs: PublicInputs = [0; 32];
-    let len = receipt.journal.bytes.len();
-    if len <= 32 {
-        pubs[..len].copy_from_slice(&receipt.journal.bytes[..len]);
-    } else {
-        return Err(DeserializeError::InvalidPublicInputs);
-    }
-
-    Ok(pubs)
+fn deserialize_pubs(pubs: &[u8]) -> Result<Journal, DeserializeError> {
+    bincode::deserialize(pubs).map_err(|_x| DeserializeError::InvalidPublicInputs)
 }

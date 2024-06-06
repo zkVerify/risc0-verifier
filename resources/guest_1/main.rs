@@ -12,7 +12,7 @@ fn main() {
     // read the input
     let input: u32 = env::read();
 
-    let output = input + 1;
+    let output = input;
 
     // write public output to the journal
     env::commit(&output);

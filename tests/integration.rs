@@ -13,74 +13,73 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use risc0_verifier::{extract_pubs_from_full_proof, verify, VerifyError};
+use risc0_verifier::{verify, DeserializeError, VerifyError};
 use rstest::rstest;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
-fn load_data(path: &Path) -> ([u32; 8], Vec<u8>, [u8; 32]) {
+fn load_data(path: &Path) -> ([u32; 8], Vec<u8>, Vec<u8>) {
     #[derive(Deserialize)]
     struct Data {
-        image_id: [u32; 8],
-        full_proof: String,
+        vk: [u32; 8],
+        proof: String,
+        pubs: String,
     }
 
-    let Data {
-        image_id,
-        full_proof,
-    } = serde_json::from_reader(std::fs::File::open(path).unwrap()).unwrap();
+    let Data { vk, proof, pubs } =
+        serde_json::from_reader(std::fs::File::open(path).unwrap()).unwrap();
 
-    let full_proof = <Vec<u8>>::try_from(hex::decode(full_proof).unwrap()).unwrap();
-    let pubs = extract_pubs_from_full_proof(&full_proof).unwrap();
+    let proof = <Vec<u8>>::try_from(hex::decode(proof).unwrap()).unwrap();
+    let pubs = <Vec<u8>>::try_from(hex::decode(pubs).unwrap()).unwrap();
 
-    (image_id, full_proof, pubs)
+    (vk, proof, pubs)
 }
 
 #[rstest]
 fn should_verify_valid_proof(#[files("./resources/valid_proof_*.json")] path: PathBuf) {
-    let (image_id, full_proof, pubs) = load_data(&path);
+    let (vk, proof, pubs) = load_data(&path);
 
-    assert!(verify(image_id.into(), &full_proof, pubs).is_ok());
+    assert!(verify(vk.into(), &proof, &pubs).is_ok());
 }
 
 #[test]
 fn should_not_verify_invalid_proof() {
-    let (image_id, mut full_proof, pubs) = load_data(Path::new("./resources/valid_proof_1.json"));
+    let (vk, mut proof, pubs) = load_data(Path::new("./resources/valid_proof_1.json"));
 
-    full_proof[0] = full_proof.first().unwrap().wrapping_add(1);
+    proof[0] = proof.first().unwrap().wrapping_add(1);
 
     assert!(matches!(
-        verify(image_id.into(), &full_proof, pubs),
-        Err(VerifyError::InvalidData { .. })
+        verify(vk.into(), &proof, &pubs),
+        Err(VerifyError::InvalidData {
+            cause: DeserializeError::InvalidProof
+        })
     ));
 }
 
 #[test]
-fn should_not_verify_mismatching_inputs() {
-    let (image_id, mut full_proof, pubs) = load_data(Path::new("./resources/valid_proof_1.json"));
+fn should_not_verify_invalid_pubs() {
+    let (vk, proof, mut pubs) = load_data(Path::new("./resources/valid_proof_1.json"));
 
-    let len = full_proof.len();
-    full_proof[len - 1] = full_proof.last().unwrap().wrapping_add(1);
+    pubs[0] = pubs.first().unwrap().wrapping_add(1);
 
     assert!(matches!(
-        verify(image_id.into(), &full_proof, pubs),
-        Err(VerifyError::MismatchingPublicInputs { .. })
+        verify(vk.into(), &proof, &pubs),
+        Err(VerifyError::InvalidData {
+            cause: DeserializeError::InvalidPublicInputs
+        })
     ));
 }
 
 #[test]
 fn should_not_verify_false_proof() {
-    let (image_id, mut full_proof, mut pubs) =
-        load_data(Path::new("./resources/valid_proof_1.json"));
+    let (vk, proof, mut pubs) = load_data(Path::new("./resources/valid_proof_1.json"));
 
-    // we know journal.bytes for that proof is 4 bytes
-    let journal_bytes_size = 4;
-    let len = full_proof.len();
-    full_proof[len - journal_bytes_size] = full_proof[len - journal_bytes_size].wrapping_add(1);
-    pubs[0] = pubs[0].wrapping_add(1);
+    let len = pubs.len();
+
+    pubs[len - 1] = pubs.last().unwrap().wrapping_add(1);
 
     assert!(matches!(
-        verify(image_id.into(), &full_proof, pubs),
+        verify(vk.into(), &proof, &pubs),
         Err(VerifyError::Failure { .. })
     ));
 }

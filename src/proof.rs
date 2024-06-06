@@ -13,8 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// The full proof (a serialized `risc0_zkvm::Receipt`) containing both proof raw data and public inputs
-pub type FullProof<'a> = &'a [u8];
+/// The full proof (a serialized `risc0_zkvm::Receipt`) containing both proof and public inputs
+pub type _FullProof<'a> = &'a [u8];
+
+/// The proof (a serialized `risc0_zkvm::InnerReceipt`)
+pub type Proof<'a> = &'a [u8];
 
 /// The public inputs (a serialized `risc0_zkvm::Journal`)
-pub type PublicInputs = [u8; 32];
+pub type PublicInputs<'a> = &'a [u8];
