@@ -43,7 +43,7 @@ fn should_verify_valid_proof(#[files("./resources/valid_proof_*.json")] path: Pa
 }
 
 #[test]
-fn should_not_verify_invalid_proof() {
+fn should_not_deserialize_invalid_proof() {
     let (vk, mut proof, pubs) = load_data(Path::new("./resources/valid_proof_1.json"));
 
     proof[0] = proof.first().unwrap().wrapping_add(1);
@@ -57,7 +57,7 @@ fn should_not_verify_invalid_proof() {
 }
 
 #[test]
-fn should_not_verify_invalid_pubs() {
+fn should_not_deserialize_invalid_pubs() {
     let (vk, proof, mut pubs) = load_data(Path::new("./resources/valid_proof_1.json"));
 
     pubs[0] = pubs.first().unwrap().wrapping_add(1);
