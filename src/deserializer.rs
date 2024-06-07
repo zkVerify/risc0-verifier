@@ -30,10 +30,7 @@ pub enum DeserializeError {
 pub fn deserialize_full_proof(proof: &[u8], pubs: &[u8]) -> Result<Receipt, DeserializeError> {
     let inner_receipt_des = deserialize_proof(proof)?;
     let journal_des = deserialize_pubs(pubs)?;
-    Ok(Receipt {
-        inner: inner_receipt_des,
-        journal: journal_des,
-    })
+    Ok(Receipt::new(inner_receipt_des, journal_des.bytes))
 }
 
 fn deserialize_proof(proof: &[u8]) -> Result<InnerReceipt, DeserializeError> {
