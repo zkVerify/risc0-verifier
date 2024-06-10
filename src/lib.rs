@@ -21,22 +21,23 @@ mod deserializer;
 mod key;
 mod proof;
 
-use deserializer::{deserialize, DeserializeError};
+use deserializer::deserialize_full_proof;
+pub use deserializer::DeserializeError;
 pub use key::Vk;
-pub use proof::ProofRawData;
+pub use proof::{Proof, PublicInputs};
 use snafu::Snafu;
 
 /// Deserialization error.
 #[derive(Debug, Snafu)]
 pub enum VerifyError {
-    /// Invalid data (not deserializable)
+    /// Invalid data
     #[snafu(display("Invalid data for verification: [{}]", cause))]
     InvalidData {
         /// Internal error
         #[snafu(source)]
         cause: DeserializeError,
     },
-    /// Verification failure
+    /// Failure
     #[snafu(display("Failed to verify: [{}]", cause))]
     Failure {
         /// Internal error
@@ -56,11 +57,12 @@ impl From<risc0_zkp::verify::VerificationError> for VerifyError {
     }
 }
 
-/// Verify the given proof raw data `proof` using verification key `image_id`.
+/// Verify the given proof `proof` and public inputs `pubs` using verification key `vk`.
+/// Use the given verification key `vk` to verify the proof `proof` against the public inputs `pubs`.
 /// Can fail if:
-/// - the raw proof data is not serializable as a `risc0_zkvm::Receipt`
-/// - the receipt is not valid for the given verification key
-pub fn verify(raw_proof_data: ProofRawData, image_id: Vk) -> Result<(), VerifyError> {
-    let receipt = deserialize(raw_proof_data)?;
-    receipt.verify(image_id.0).map_err(Into::into)
+/// - the proof or the pubs are not serializable respectively as a `risc0_zkvm::InnerReceipt` and a `risc0_zkvm::Journal`
+/// - the proof is not valid
+pub fn verify(vk: Vk, proof: Proof, pubs: PublicInputs) -> Result<(), VerifyError> {
+    let receipt = deserialize_full_proof(proof, pubs)?;
+    receipt.verify(vk.0).map_err(Into::into)
 }

@@ -13,19 +13,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use risc0_zkvm::Receipt;
+use risc0_zkvm::{InnerReceipt, Journal, Receipt};
 use snafu::Snafu;
 
 /// Deserialization error
 #[derive(Debug, Snafu)]
 pub enum DeserializeError {
-    #[snafu(display("Invalid data for deserialization: [{:?}...{:?}]", first, last))]
-    InvalidData { first: Option<u8>, last: Option<u8> },
+    /// Invalid proof
+    #[snafu(display("Invalid proof for deserialization"))]
+    InvalidProof,
+    /// Invalid public inputs
+    #[snafu(display("Invalid public inputs for deserialization"))]
+    InvalidPublicInputs,
 }
 
-pub fn deserialize(byte_stream: &[u8]) -> Result<Receipt, DeserializeError> {
-    bincode::deserialize(byte_stream).map_err(|_x| DeserializeError::InvalidData {
-        first: byte_stream.first().copied(),
-        last: byte_stream.last().copied(),
-    })
+pub fn deserialize_full_proof(proof: &[u8], pubs: &[u8]) -> Result<Receipt, DeserializeError> {
+    let inner_receipt_des = deserialize_proof(proof)?;
+    let journal_des = deserialize_pubs(pubs)?;
+    Ok(Receipt::new(inner_receipt_des, journal_des.bytes))
+}
+
+fn deserialize_proof(proof: &[u8]) -> Result<InnerReceipt, DeserializeError> {
+    bincode::deserialize(proof).map_err(|_x| DeserializeError::InvalidProof)
+}
+
+fn deserialize_pubs(pubs: &[u8]) -> Result<Journal, DeserializeError> {
+    bincode::deserialize(pubs).map_err(|_x| DeserializeError::InvalidPublicInputs)
 }

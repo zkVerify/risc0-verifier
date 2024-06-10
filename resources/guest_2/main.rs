@@ -1,10 +1,4 @@
-#![no_main]
-// If you want to try std support, also update the guest Cargo.toml file
-#![no_std] // std support is experimental
-
 use risc0_zkvm::guest::env;
-
-risc0_zkvm::guest::entry!(main);
 
 fn main() {
     // TODO: Implement your guest code here
@@ -12,7 +6,7 @@ fn main() {
     // read the input
     let input: u32 = env::read();
 
-    let output = input;
+    let output = input + 1;
 
     // write public output to the journal
     env::commit(&output);

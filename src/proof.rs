@@ -13,5 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// The proof raw data (a serialized `risc0_zkvm::Receipt`).
-pub type ProofRawData<'a> = &'a [u8];
+/// The proof (a serialized `risc0_zkvm::InnerReceipt`)
+pub type Proof<'a> = &'a [u8];
+
+/// The public inputs (a serialized `risc0_zkvm::Journal`)
+pub type PublicInputs<'a> = &'a [u8];

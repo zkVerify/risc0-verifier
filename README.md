@@ -10,19 +10,18 @@ This crate provides a way for deserializing the proof and the verification key (
 
     #[derive(Deserialize)]
     struct Data {
-        proof_raw_data: String,
-        image_id: [u32; 8],
+        vk: [u32; 8],
+        proof: String,
+        pubs: String,
     }
 
-    let Data {
-        proof_raw_data,
-        image_id,
-    } = serde_json::from_reader(std::fs::File::open("./resources/valid_proof_1.json").unwrap())
-        .unwrap();
+    let Data { vk, proof, pubs } =
+        serde_json::from_reader(std::fs::File::open("./resources/valid_proof_1.json").unwrap()).unwrap();
 
-    let proof_raw_data = <Vec<u8>>::try_from(hex::decode(proof_raw_data).unwrap()).unwrap();
+    let proof = <Vec<u8>>::try_from(hex::decode(proof).unwrap()).unwrap();
+    let pubs = <Vec<u8>>::try_from(hex::decode(pubs).unwrap()).unwrap();
 
-    assert!(verify(&proof_raw_data, image_id.into()).is_ok());
+    assert!(verify(vk.into(), &proof, &pubs).is_ok());
 ```
 
 ## Develop
