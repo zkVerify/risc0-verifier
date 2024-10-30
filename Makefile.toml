@@ -9,12 +9,10 @@ command = "cargo"
 args = ["clean"]
 
 [tasks.build]
-dependencies = ["clean"]
 command = "cargo"
 args = ["build"]
 
 [tasks.test]
-dependencies = ["clean"]
 command = "cargo"
 args = ["test"]
 
@@ -71,9 +69,15 @@ command = "cargo"
 args = ["udeps", "--all-targets"]
 
 
-
 [tasks.ci]
 dependencies = ["build", "test", "format", "header-add", "clippy", "audit"]
 
 [tasks.ci-remote]
-dependencies = ["build", "test", "format-check", "header-check", "clippy", "audit"]
+dependencies = [
+    "build",
+    "test",
+    "format-check",
+    "header-check",
+    "clippy",
+    "audit",
+]
