@@ -1,0 +1,13 @@
+[package]
+name = "host"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+risc0-zkvm = { version = "1.2.0", features = ["prove"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde = "1.0"
+serde_json = "1.0.133"
+ciborium = "0.2.2"
+hex-literal = "0.4.1"
+hex = "0.4.3"

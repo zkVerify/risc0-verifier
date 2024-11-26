@@ -8,6 +8,15 @@ workspace = false
 command = "cargo"
 args = ["clean"]
 
+[tasks.install-bare-metal]
+command = "rustup"
+args = ["target", "add", "thumbv7em-none-eabi"]
+
+[tasks.build-bare-metal]
+dependencies = ["install-bare-metal"]
+command = "cargo"
+args = ["build", "--no-default-features", "--target", "thumbv7em-none-eabi"]
+
 [tasks.build]
 command = "cargo"
 args = ["build"]
@@ -38,13 +47,19 @@ dependencies = ["clippy-inst"]
 command = "cargo"
 args = ["clippy", "--", "--deny", "warnings"]
 
+[tasks.compile-header-fix]
+command = "cargo"
+args = ["build", "--manifest-path", "header-fix/Cargo.toml", "--release"]
+
 [tasks.header-add]
-script = { file = "./scripts/add_header_if_missing.sh" }
-args = ["HEADER-APACHE2", "./!(target)/**/*.rs"]
+dependencies = ["compile-header-fix"]
+command = "./header-fix/target/release/header-fix"
+args = ["--glob", "**/*.rs", "HEADER-APACHE2"]
 
 [tasks.header-check]
-env = { CHECK_DIRTY = "true", DRY_RUN = "true" }
-run_task = "header-add"
+dependencies = ["compile-header-fix"]
+command = "./header-fix/target/release/header-fix"
+args = ["--check", "--glob", "**/*.rs", "HEADER-APACHE2"]
 
 [tasks.audit-inst]
 command = "cargo"
@@ -68,16 +83,11 @@ dependencies = ["udeps-inst"]
 command = "cargo"
 args = ["udeps", "--all-targets"]
 
+[tasks.ci-common]
+dependencies = ["build", "build-bare-metal", "test", "clippy", "audit"]
 
 [tasks.ci]
-dependencies = ["build", "test", "format", "header-add", "clippy", "audit"]
+dependencies = ["format", "header-add", "ci-common"]
 
 [tasks.ci-remote]
-dependencies = [
-    "build",
-    "test",
-    "format-check",
-    "header-check",
-    "clippy",
-    "audit",
-]
+dependencies = ["format-check", "header-check", "ci-common"]

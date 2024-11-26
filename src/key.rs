@@ -13,8 +13,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use serde::{Deserialize, Serialize};
+
 /// The verification key (aka image id, the hash of the guest program)
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Vk(pub risc0_zkp::core::digest::Digest);
+
+impl Vk {
+    pub fn as_words(&self) -> &[u32] {
+        self.0.as_words()
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
+}
 
 impl From<[u32; risc0_zkp::core::digest::DIGEST_WORDS]> for Vk {
     fn from(value: [u32; risc0_zkp::core::digest::DIGEST_WORDS]) -> Self {
@@ -24,18 +37,13 @@ impl From<[u32; risc0_zkp::core::digest::DIGEST_WORDS]> for Vk {
 
 impl From<[u8; risc0_zkp::core::digest::DIGEST_BYTES]> for Vk {
     fn from(value: [u8; risc0_zkp::core::digest::DIGEST_BYTES]) -> Self {
-        // Initialize with zeros
-        let mut value_u32: [u32; risc0_zkp::core::digest::DIGEST_WORDS] =
-            [0; risc0_zkp::core::digest::DIGEST_WORDS];
-        // Iterate over chunks of 4 bytes and convert them to u32
-        for (i, chunk) in value.chunks_exact(4).enumerate() {
-            let mut single_value: u32 = 0;
-            for (j, &byte) in chunk.iter().enumerate() {
-                single_value |= (byte as u32) << (8 * j);
-            }
-            value_u32[i] = single_value;
-        }
-        Self(value_u32.into())
+        Vk(value.into())
+    }
+}
+
+impl From<Vk> for risc0_zkp::core::digest::Digest {
+    fn from(value: Vk) -> Self {
+        value.0
     }
 }
 
