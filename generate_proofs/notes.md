@@ -32,19 +32,18 @@ mdamico@miklap:~/devel/first_r0$ cp target/riscv-guest/riscv32im-risc0-zkvm-elf/
 
 We would fix the prover version for instance to `1.1.3` then in `host` folder we need to.
 
-Clean up:
-
-```sh
-cargo clean; rm -f Cargo.lock methods/guest/Cargo.lock
-```
-
 Edit `Cargo.toml` and set the following dependency line:
 
 ```toml
 risc0-zkvm = { version = "=1.1.3", features = ["prove"] }
+risc0-zkp = { version = "=1.1.3" }
+risc0-circuit-rv32im-sys = { version = "=1.1.3" }
+risc0-circuit-recursion-sys = { version = "=1.1.3" }
 ```
 
-then run follow script
+This should be enough in most of the case but maybe in the next version the list can increase
+due some new incompatibility (risc0 doesn't respect the semantic versioning :cry:). A workaround 
+can be use the  follow script
 
 ```sh
 export NEW_VERSION="1.1.3";
@@ -94,10 +93,11 @@ cargo update --precise 0.9.0 bonsai-sdk
 In `methods/guest` folder change the dependency in `Cargo.toml`
 
 ```toml
-risc0-zkvm = { version = "1.1.3", default-features = false, features = ['std'] }
+risc0-zkvm = { version = "=1.1.3", default-features = false, features = ['std'] }
+risc0-zkp = { version = "=1.1.3" }
 ```
 
-and then like in the previous section run the following script:
+Also, here this cannot be enough and then like in the previous section run the following script:
 
 ```sh
 export NEW_VERSION="=1.1.3";

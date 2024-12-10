@@ -75,16 +75,18 @@ command = "cargo"
 args = ["llvm-cov", "--workspace", "--lcov", "--output-path", "lcov.info"]
 
 [tasks.udeps-inst]
+toolchain = "nightly"
 command = "cargo"
 args = ["install", "cargo-udeps", "--locked"]
 
 [tasks.udeps]
 dependencies = ["udeps-inst"]
+toolchain = "nightly"
 command = "cargo"
 args = ["udeps", "--all-targets"]
 
 [tasks.ci-common]
-dependencies = ["build", "build-bare-metal", "test", "clippy", "audit"]
+dependencies = ["build", "build-bare-metal", "test", "clippy", "audit", "udeps"]
 
 [tasks.ci]
 dependencies = ["format", "header-add", "ci-common"]

@@ -26,19 +26,13 @@ jobs:
         with:
           command: install
           args: --debug cargo-make
-      - name: Run CI full (stable)
-        uses: actions-rs/cargo@v1
-        with:
-          toolchain: stable
-          command: make
-          args: ci-remote     
       - name: Install latest nightly
         uses: actions-rs/toolchain@v1
         with:
             toolchain: nightly
-      - name: Run CI check-deps only (nightly)
+      - name: Run CI full
         uses: actions-rs/cargo@v1
         with:
-          toolchain: nightly
+          toolchain: stable
           command: make
-          args: udeps
+          args: ci-remote

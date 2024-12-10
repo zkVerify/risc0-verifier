@@ -39,7 +39,7 @@ mod key;
 mod receipt;
 mod receipt_claim;
 mod segment;
-mod sha;
+pub mod sha;
 
 /// Verify the given proof `proof` and public inputs `pubs` using verification key `vk`.
 /// Use this method to verify the proof generate withe the latest risc0 prover version (1.2.x).

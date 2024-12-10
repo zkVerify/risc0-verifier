@@ -32,7 +32,7 @@
 //! The other interface is to directly use an implementation of the [Sha256]
 //! trait defined in this module:
 //! ```rust
-//! use risc0_zkvm::sha::{Impl, Sha256};
+//! use risc0_verifier::sha::{Impl, Sha256};
 //!
 //! // Hash a u8 array
 //! let data = [1_u8, 2, 5, 14];
