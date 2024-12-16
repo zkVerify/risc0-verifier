@@ -19,6 +19,9 @@ use risc0_verifier::{
     CircuitCoreDef, CompositeReceipt, Journal, MaybePruned, Proof, ReceiptClaim, SuccinctReceipt,
     VerifierContext, Vk,
 };
+use risc0_zkp::core::hash::HashFn;
+use risc0_zkp::field::baby_bear::BabyBear;
+use risc0_zkp::field::Field;
 use risc0_zkp::verify::VerificationError;
 use rstest::rstest;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -162,6 +165,83 @@ mod v1_2 {
         proof
             .verify_with_context(&ctx, case.vk, case.journal.digest())
             .unwrap()
+    }
+}
+
+mod use_custom_local_implemented_hash_function {
+    use super::*;
+
+    use risc0_verifier::sha::Sha256;
+    use risc0_zkp::core::digest::Digest;
+    use risc0_zkp::core::hash::sha::cpu::Impl;
+    struct CorrectSha256;
+
+    impl HashFn<BabyBear> for CorrectSha256 {
+        fn hash_pair(&self, a: &Digest, b: &Digest) -> Box<Digest> {
+            (*Impl::hash_pair(a, b)).into()
+        }
+
+        fn hash_elem_slice(&self, slice: &[<BabyBear as Field>::Elem]) -> Box<Digest> {
+            (*Impl::hash_raw_data_slice(slice)).into()
+        }
+
+        fn hash_ext_elem_slice(&self, slice: &[<BabyBear as Field>::ExtElem]) -> Box<Digest> {
+            (*Impl::hash_raw_data_slice(slice)).into()
+        }
+    }
+
+    struct FakeSha256;
+
+    impl HashFn<BabyBear> for FakeSha256 {
+        fn hash_pair(&self, _a: &Digest, _b: &Digest) -> Box<Digest> {
+            (Digest::ZERO).into()
+        }
+
+        fn hash_elem_slice(&self, _slice: &[<BabyBear as Field>::Elem]) -> Box<Digest> {
+            (Digest::ZERO).into()
+        }
+
+        fn hash_ext_elem_slice(&self, _slice: &[<BabyBear as Field>::ExtElem]) -> Box<Digest> {
+            (Digest::ZERO).into()
+        }
+    }
+
+    #[test]
+    fn should_work() {
+        let mut ctx = VerifierContext::v1_2();
+        let mut suites = ctx.suites.clone();
+        let mut sha = suites.get("sha-256").cloned().unwrap();
+        sha.hashfn = std::rc::Rc::new(CorrectSha256);
+
+        suites.insert("sha-256".to_owned(), sha).unwrap();
+        ctx = ctx.with_suites(suites);
+
+        let case: Case = read_all("./resources/cases/prover_1.2.0/vm_1.2.0/sha_16.json").unwrap();
+
+        let proof = case.get_proof().unwrap();
+
+        proof
+            .verify_with_context(&ctx, case.vk, case.journal.digest())
+            .unwrap()
+    }
+
+    #[test]
+    fn should_fail() {
+        let mut ctx = VerifierContext::v1_2();
+        let mut suites = ctx.suites.clone();
+        let mut sha = suites.get("sha-256").cloned().unwrap();
+        sha.hashfn = std::rc::Rc::new(FakeSha256);
+
+        suites.insert("sha-256".to_owned(), sha).unwrap();
+        ctx = ctx.with_suites(suites);
+
+        let case: Case = read_all("./resources/cases/prover_1.2.0/vm_1.2.0/sha_16.json").unwrap();
+
+        let proof = case.get_proof().unwrap();
+
+        proof
+            .verify_with_context(&ctx, case.vk, case.journal.digest())
+            .unwrap_err();
     }
 }
 

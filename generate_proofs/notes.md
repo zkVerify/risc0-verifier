@@ -37,8 +37,6 @@ Edit `Cargo.toml` and set the following dependency line:
 ```toml
 risc0-zkvm = { version = "=1.1.3", features = ["prove"] }
 risc0-zkp = { version = "=1.1.3" }
-risc0-circuit-rv32im-sys = { version = "=1.1.3" }
-risc0-circuit-recursion-sys = { version = "=1.1.3" }
 ```
 
 This should be enough in most of the case but maybe in the next version the list can increase
@@ -48,7 +46,7 @@ can be use the  follow script
 ```sh
 export NEW_VERSION="1.1.3";
 
-for p in risc0-zkvm risc0-build risc0-circuit-recursion \
+for p in risc0-zkvm risc0-circuit-recursion \
     risc0-circuit-recursion-sys risc0-circuit-rv32im risc0-circuit-rv32im-sys \
     risc0-groth16 risc0-binfmt risc0-zkp risc0-zkvm-platform \
     risc0-core risc0-sys risc0-build-kernel ;
