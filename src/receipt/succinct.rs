@@ -279,41 +279,21 @@ mod tests {
 
     use super::SuccinctReceiptVerifierParameters;
     use crate::sha::Digestible;
-    use risc0_zkp::core::digest::digest;
+    use risc0_zkp::core::digest::{digest, Digest};
+    use rstest::rstest;
 
     // Check that the verifier parameters has a stable digest (and therefore a stable value). This
     // struct encodes parameters used in verification, and so this value should be updated if and
     // only if a change to the verifier parameters is expected. Updating the verifier parameters
     // will result in incompatibility with previous versions.
-    #[test]
-    fn succinct_receipt_verifier_parameters_is_stable_v1_2() {
-        assert_eq!(
-            SuccinctReceiptVerifierParameters::v1_2().digest(),
-            digest!("21a829e931cda9f34723dc77d947efe264771fea83bc495b3903014d0fe50d57")
-        );
-    }
-
-    // Check that the verifier parameters has a stable digest (and therefore a stable value). This
-    // struct encodes parameters used in verification, and so this value should be updated if and
-    // only if a change to the verifier parameters is expected. Updating the verifier parameters
-    // will result in incompatibility with previous versions.
-    #[test]
-    fn succinct_receipt_verifier_parameters_is_stable_v1_1() {
-        assert_eq!(
-            SuccinctReceiptVerifierParameters::v1_1().digest(),
-            digest!("71023badfee05b76de871c5cc5a95cbedf50395e3634ffb9f3192950b16a77ae")
-        );
-    }
-
-    // Check that the verifier parameters has a stable digest (and therefore a stable value). This
-    // struct encodes parameters used in verification, and so this value should be updated if and
-    // only if a change to the verifier parameters is expected. Updating the verifier parameters
-    // will result in incompatibility with previous (minor) versions.
-    #[test]
-    fn succinct_receipt_verifier_parameters_is_stable_v1_0() {
-        assert_eq!(
-            SuccinctReceiptVerifierParameters::v1_0().digest(),
-            digest!("f171d19df8f27878677080c5e4c38ed2655f5f54302468ce805594a4b3e38104")
-        );
+    #[rstest]
+    #[case::v1_0(SuccinctReceiptVerifierParameters::v1_0().digest(), digest!("f171d19df8f27878677080c5e4c38ed2655f5f54302468ce805594a4b3e38104"))]
+    #[case::v1_1(SuccinctReceiptVerifierParameters::v1_1().digest(), digest!("71023badfee05b76de871c5cc5a95cbedf50395e3634ffb9f3192950b16a77ae"))]
+    #[case::v1_2(SuccinctReceiptVerifierParameters::v1_2().digest(), digest!("21a829e931cda9f34723dc77d947efe264771fea83bc495b3903014d0fe50d57"))]
+    fn succinct_receipt_verifier_parameters_is_stable(
+        #[case] computed: Digest,
+        #[case] hardcoded: Digest,
+    ) {
+        assert_eq!(computed, hardcoded);
     }
 }
