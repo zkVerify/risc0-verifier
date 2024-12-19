@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use risc0_verifier::verify;
 use risc0_verifier::Digestible as _;
-use risc0_verifier::{verify, verify_with_context};
 use risc0_verifier::{
     CircuitCoreDef, CompositeReceipt, Journal, MaybePruned, Proof, ReceiptClaim, SuccinctReceipt,
     VerifierContext, Vk,
@@ -45,9 +45,7 @@ mod legacy {
 
         let ctx = VerifierContext::v1_0();
         let proof = Proof::new(inner_receipt);
-        proof
-            .verify_with_context(&ctx, vk, journal.digest())
-            .unwrap()
+        proof.verify(&ctx, vk, journal.digest()).unwrap()
     }
 
     fn load_data(path: &Path) -> ([u32; 8], Vec<u8>, Vec<u8>) {
@@ -89,20 +87,11 @@ mod legacy {
 
 #[test]
 fn verify_valid_proof() {
-    let case: Case = read_all("./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json").unwrap();
-
-    let proof = case.get_proof().unwrap();
-
-    verify(case.vk, proof, case.journal).unwrap()
-}
-
-#[test]
-fn verify_with_context_valid_proof() {
     let case: Case = read_all("./resources/cases/prover_1.0.3/vm_1.1.3/sha_16.json").unwrap();
 
     let proof = case.get_proof().unwrap();
 
-    verify_with_context(&VerifierContext::v1_0(), case.vk, proof, case.journal).unwrap()
+    verify(&VerifierContext::v1_0(), case.vk, proof, case.journal).unwrap()
 }
 
 mod v1_0 {
@@ -120,9 +109,7 @@ mod v1_0 {
 
         let proof = case.get_proof().unwrap();
 
-        proof
-            .verify_with_context(&ctx, case.vk, case.journal.digest())
-            .unwrap()
+        proof.verify(&ctx, case.vk, case.journal.digest()).unwrap()
     }
 }
 
@@ -141,9 +128,7 @@ mod v1_1 {
 
         let proof = case.get_proof().unwrap();
 
-        proof
-            .verify_with_context(&ctx, case.vk, case.journal.digest())
-            .unwrap()
+        proof.verify(&ctx, case.vk, case.journal.digest()).unwrap()
     }
 }
 
@@ -162,9 +147,7 @@ mod v1_2 {
 
         let proof = case.get_proof().unwrap();
 
-        proof
-            .verify_with_context(&ctx, case.vk, case.journal.digest())
-            .unwrap()
+        proof.verify(&ctx, case.vk, case.journal.digest()).unwrap()
     }
 }
 
@@ -220,9 +203,7 @@ mod use_custom_local_implemented_hash_function {
 
         let proof = case.get_proof().unwrap();
 
-        proof
-            .verify_with_context(&ctx, case.vk, case.journal.digest())
-            .unwrap()
+        proof.verify(&ctx, case.vk, case.journal.digest()).unwrap()
     }
 
     #[test]
@@ -240,7 +221,7 @@ mod use_custom_local_implemented_hash_function {
         let proof = case.get_proof().unwrap();
 
         proof
-            .verify_with_context(&ctx, case.vk, case.journal.digest())
+            .verify(&ctx, case.vk, case.journal.digest())
             .unwrap_err();
     }
 }
@@ -260,7 +241,7 @@ fn fails_on_invalid_segment<SC: CircuitCoreDef, RC: CircuitCoreDef>(
 
     seal[seal.len() / 2] = seal[seal.len() / 2].wrapping_add(1);
 
-    let res = proof.verify_with_context(&ctx, case.vk, case.journal.digest());
+    let res = proof.verify(&ctx, case.vk, case.journal.digest());
 
     assert!(res.is_err());
     assert!(matches!(res, Err(VerificationError::InvalidProof { .. })));
@@ -278,7 +259,7 @@ fn fails_on_invalid_succinct<SC: CircuitCoreDef, RC: CircuitCoreDef>(
 
     seal[seal.len() / 2] = seal[seal.len() / 2].wrapping_add(1);
 
-    let res = proof.verify_with_context(&ctx, case.vk, case.journal.digest());
+    let res = proof.verify(&ctx, case.vk, case.journal.digest());
 
     assert!(res.is_err());
     assert!(matches!(res, Err(VerificationError::InvalidProof { .. })));
@@ -298,7 +279,7 @@ fn fails_on_invalid_vk<SC: CircuitCoreDef, RC: CircuitCoreDef>(
         .last_mut()
         .map(|l| *l = l.wrapping_add(1));
 
-    let res = proof.verify_with_context(&ctx, case.vk, case.journal.digest());
+    let res = proof.verify(&ctx, case.vk, case.journal.digest());
 
     assert!(res.is_err());
     assert!(
@@ -320,7 +301,7 @@ fn fails_on_invalid_pubs<SC: CircuitCoreDef, RC: CircuitCoreDef>(
         .last_mut()
         .map(|l| *l = l.wrapping_add(1));
 
-    let res = proof.verify_with_context(&ctx, case.vk, case.journal.digest());
+    let res = proof.verify(&ctx, case.vk, case.journal.digest());
 
     assert!(res.is_err());
     assert!(
@@ -341,7 +322,7 @@ fn fails_on_invalid_claim<SC: CircuitCoreDef, RC: CircuitCoreDef>(
         .claim
         .exit_code = risc0_binfmt::ExitCode::Halted(0);
 
-    let res = proof.verify_with_context(&ctx, case.vk, case.journal.digest());
+    let res = proof.verify(&ctx, case.vk, case.journal.digest());
 
     assert!(res.is_err());
     assert!(
@@ -362,7 +343,7 @@ fn fails_on_invalid_inner_control_root<SC: CircuitCoreDef, RC: CircuitCoreDef>(
         .as_mut()
         .map(|p| p.inner_control_root = Some(risc0_verifier::Digest::ZERO));
 
-    let res = proof.verify_with_context(&ctx, case.vk, case.journal.digest());
+    let res = proof.verify(&ctx, case.vk, case.journal.digest());
 
     assert!(res.is_err());
     assert!(
@@ -381,7 +362,7 @@ fn fails_on_invalid_succinct_claim<SC: CircuitCoreDef, RC: CircuitCoreDef>(
 
     proof.inner.mut_succinct().unwrap().claim = MaybePruned::Pruned(risc0_verifier::Digest::ZERO);
 
-    let res = proof.verify_with_context(&ctx, case.vk, case.journal.digest());
+    let res = proof.verify(&ctx, case.vk, case.journal.digest());
 
     assert!(res.is_err());
     assert!(

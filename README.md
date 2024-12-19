@@ -6,7 +6,14 @@ This crate provides a way for deserializing
 
 - `Proof` (aka risc0 receipt)
 - the verification key `Vk` (aka risc0 image id)
-- public inputs `Journal` (aka risc0 journal):
+- public inputs `Journal` (aka risc0 journal)
+
+And then you can verify the given proof generated with a specific risc0 vm version against
+the verification key and public inputs.
+
+In order to choose the vm version you should get the `VerifierContext` coherent with the
+vm version used to generate the proof. For instance the following code assume that the proof
+was generated with risc0 vm version `1.2`.
 
 ```rust
     use risc0_verifier::*;
@@ -26,18 +33,21 @@ This crate provides a way for deserializing
             std::fs::File::open("./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json").unwrap()
         ).unwrap();
 
+    // This just deserialize a risc0 receipt serialized with `ciborium` crate
     let proof = ciborium::from_reader(File::open(receipt_path).unwrap()).unwrap();
 
-    assert!(verify(vk, proof, journal).is_ok());
+    assert!(verify(&VerifierContext::v1_2(), vk, proof, journal).is_ok());
 ```
 
 ## Save a risc0 receipt
 
 `risc0-verifier` accepts _any_ **serde** serialized risc0 `Receipt` that doesn't
-contain groth16 proof. So, is you have a risc0's `Receipt` you can just serialize it
-with `serde` in your preferred format (i.e. `ciborium` or `json`) and the deserialize
-it to use with `risc0-verifier`. You can do the same thing with the `Journal` because the
-serialized risc0's `Journal` can be deserialized for `risc0-verifier` as well. For the
+contain any groth16 proof. So, is you have a risc0's `Receipt` you can just serialize it
+with `serde` in your preferred format (i.e. `ciborium` or `json`) and then deserialize
+it into `risc0-verifier::Proof` like in the previous example to call `risc0-verifier::verify`.
+
+You can also do the same thing with the `Journal` because the serialized risc0's `Journal` can
+be deserialized into `risc0-verifier::Journal` as well. For the
 `Vk` the risc0 image key bytes can be used directly to build it:
 
 ```rust
@@ -56,34 +66,6 @@ serialized risc0's `Journal` can be deserialized for `risc0-verifier` as well. F
 
     assert_eq!(vk.as_words(), r0.as_words());
     assert_eq!(vk.as_bytes(), r0.as_bytes());
-```
-
-## Verify a proof generate with an old risc0 version
-
-If you need to verify a proof generated with an old risc0 prover version, for instance the `1.1.3`,
-you can use [`verify_with_context`] instead:
-
-```rust
-    use risc0_verifier::*;
-    use std::path::PathBuf;
-    use serde::Deserialize;
-    use std::fs::File;
-
-    #[derive(Deserialize)]
-    pub struct Case {
-        pub receipt_path: PathBuf,
-        pub journal: Journal,
-        pub vk: Vk,
-    }
-
-    let Case { receipt_path, journal, vk } =
-        serde_json::from_reader(
-            std::fs::File::open("./resources/cases/prover_1.1.3/vm_1.1.3/poseidon2_22.json").unwrap()
-        ).unwrap();
-
-    let proof = ciborium::from_reader(File::open(receipt_path).unwrap()).unwrap();
-
-    assert!(verify_with_context(&VerifierContext::v1_1(), vk, proof, journal).is_ok());
 ```
 
 ## Develop

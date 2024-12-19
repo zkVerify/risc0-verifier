@@ -53,35 +53,20 @@ impl Proof {
         Self { inner }
     }
 
-    /// Verify the prove against the given public inputs `pubs` and the vk `image_id`.  
+    /// Verifies that this receipt proves a successful execution of the zkVM for the given `image_id`.
     ///
-    /// The context version used is the last `v1_1` that is compatible with all proof generated
-    /// with Risc0 1.1.x versions. If you are interested to verify older version see
-    /// `verify_with_context` instead.
+    /// This method uses a zero-knowledge proof system to verify the seal and decodes the proven
+    /// [`ReceiptClaim`]. Additionally, it ensures the following:
+    /// - The guest exited with a successful status code (i.e., `Halted(0)`).
+    /// - The image ID matches the expected value.
+    /// - The journal has not been tampered with.
     ///
-    /// Uses the zero-knowledge proof system to verify the seal, and decodes the proven
-    /// [ReceiptClaim]. This method additionally ensures that the guest exited with a successful
-    /// status code (i.e. `Halted(0)`), the image ID is as expected, and the journal has not been
-    /// tampered with.
-    ///
-    /// - `pubs`: Risc0 `Journal` or just a sha digest of it.
-    /// - `image_id`: The Risc0 expected image ID or just a sha digest of it.
-    pub fn verify(
-        &self,
-        image_id: impl Into<Digest>,
-        pubs: impl Into<Digest>,
-    ) -> Result<(), VerificationError> {
-        self.verify_with_context(&VerifierContext::v1_2(), image_id, pubs)
-    }
-
-    /// Verify that this receipt proves a successful execution of the zkVM from the given
-    /// `image_id`.
-    ///
-    /// Uses the zero-knowledge proof system to verify the seal, and decodes the proven
-    /// [ReceiptClaim]. This method additionally ensures that the guest exited with a successful
-    /// status code (i.e. `Halted(0)`), the image ID is as expected, and the journal has not been
-    /// tampered with.
-    pub fn verify_with_context<SC: CircuitCoreDef, RC: CircuitCoreDef>(
+    /// Parameters:
+    /// - `ctx`: The verification context that identifies the prover version used to generate the proof.
+    ///   Refer to [VerifierContext] for more details.
+    /// - `pubs`: The Risc0 Journal or a SHA digest of it.
+    /// - `image_id`: The expected Risc0 image ID or its SHA digest.
+    pub fn verify<SC: CircuitCoreDef, RC: CircuitCoreDef>(
         &self,
         ctx: &VerifierContext<SC, RC>,
         image_id: impl Into<Digest>,
@@ -115,11 +100,11 @@ impl Proof {
     }
 }
 
-/// A record of the public commitments for a proven zkVM execution.
+/// A record of the public commitments from a proven zkVM execution.
 ///
-/// Public outputs, including commitments to important inputs, are written to the journal during
-/// zkVM execution. Along with an image ID, it constitutes the statement proven by a given
-/// [Receipt]
+/// Public outputs, including commitments to critical inputs, are written to the journal during
+/// zkVM execution. Together with an image ID, these form the statement proven by a given
+/// [`Proof`].
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub struct Journal {
     /// The raw bytes of the journal.
@@ -153,7 +138,7 @@ impl AsRef<[u8]> for Journal {
 pub enum InnerReceipt {
     /// A non-succinct [CompositeReceipt], made up of one inner receipt per segment.
     Composite(CompositeReceipt),
-    /// A [SuccinctReceipt], proving arbitrarily long zkVM computions with a single STARK.
+    /// A [SuccinctReceipt], proving arbitrarily long zkVM computations with a single STARK.
     Succinct(SuccinctReceipt<ReceiptClaim>),
 }
 
@@ -170,7 +155,7 @@ impl InnerReceipt {
         }
     }
 
-    /// Returns the [InnerReceipt::Composite] arm.
+    /// Returns the [`InnerReceipt::Composite`] arm.
     pub fn composite(&self) -> Result<&CompositeReceipt, VerificationError> {
         if let Self::Composite(x) = self {
             Ok(x)
@@ -179,7 +164,7 @@ impl InnerReceipt {
         }
     }
 
-    /// Returns the [InnerReceipt::Succinct] arm.
+    /// Returns the [`InnerReceipt::Succinct`] arm.
     pub fn succinct(&self) -> Result<&SuccinctReceipt<ReceiptClaim>, VerificationError> {
         if let Self::Succinct(x) = self {
             Ok(x)
@@ -188,7 +173,7 @@ impl InnerReceipt {
         }
     }
 
-    /// Extract the [ReceiptClaim] from this receipt.
+    /// Extract the [`ReceiptClaim`] from this receipt.
     pub fn claim(&self) -> Result<MaybePruned<ReceiptClaim>, VerificationError> {
         match self {
             Self::Composite(ref inner) => Ok(inner.claim()?.into()),
@@ -205,8 +190,8 @@ impl InnerReceipt {
     }
 }
 
-/// An enumeration of receipt types similar to [InnerReceipt], but for use in [AssumptionReceipt].
-/// Instead of proving only RISC-V execution with [ReceiptClaim], this type can prove any claim
+/// An enumeration of receipt types similar to [`InnerReceipt`], but for use in [AssumptionReceipt].
+/// Instead of proving only RISC-V execution with [`ReceiptClaim`], this type can prove any claim
 /// implemented by one of its inner types.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum InnerAssumptionReceipt {

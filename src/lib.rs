@@ -41,24 +41,17 @@ mod receipt_claim;
 mod segment;
 pub mod sha;
 
-/// Verify the given proof `proof` and public inputs `pubs` using verification key `vk`.
-/// Use this method to verify the proof generate withe the latest risc0 prover version (1.2.x).
-/// Use the given verification key `vk` to verify the proof `proof` against the public inputs `pubs`.
-/// Can fail if is the proof is not valid or generate with a different risc0 prover version.
-pub fn verify(vk: Vk, proof: Proof, pubs: Journal) -> Result<(), VerificationError> {
-    proof.verify(vk.0, pubs.digest()).map_err(Into::into)
-}
-
-/// Verify the given proof `proof` and public inputs `pubs` using verification key `vk` against the given
-/// `VerifierContext`. The context identify the prover version used to generate the proof: see [`VerifierContext`]
-/// to get more details about how to get the version compatible to the prover that you used to generate the proof.
-/// Use the given verification key `vk` to verify the proof `proof` against the public inputs `pubs`.
-/// Can fail if is the proof is not valid or generate with a different risc0 prover version.
-pub fn verify_with_context<RC: CircuitCoreDef, SC: CircuitCoreDef>(
+/// Verifies the given `proof` and public inputs `pubs` using the verification key `vk` within the provided
+/// `VerifierContext`. The context identifies the prover version used to generate the proof. Refer to [`VerifierContext`]
+/// for more details on obtaining the version compatible with the prover used to generate the proof.
+///
+/// The verification key `vk` is used to validate the proof `proof` against the public inputs `pubs`.
+/// Verification can fail if the proof is invalid or was generated with a different RISC Zero prover version.
+pub fn verify<RC: CircuitCoreDef, SC: CircuitCoreDef>(
     ctx: &VerifierContext<RC, SC>,
     vk: Vk,
     proof: Proof,
     pubs: Journal,
 ) -> Result<(), VerificationError> {
-    proof.verify_with_context(ctx, vk.0, pubs.digest())
+    proof.verify(ctx, vk.0, pubs.digest())
 }

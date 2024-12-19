@@ -37,7 +37,7 @@ pub fn compute<SC: CircuitCoreDef + 'static, RC: CircuitCoreDef + 'static>(
     vk: Vk,
     pubs: Digest,
 ) {
-    proof.verify_with_context(&ctx, vk, pubs).unwrap()
+    proof.verify(&ctx, vk, pubs).unwrap()
 }
 
 pub fn read_json<T: DeserializeOwned>(path: impl AsRef<Path>) -> anyhow::Result<T> {

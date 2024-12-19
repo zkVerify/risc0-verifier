@@ -30,7 +30,18 @@ use crate::{
     segment::SegmentReceiptVerifierParameters,
 };
 
-/// Context available to the verification process.
+/// Context available to the verification process. The context contains
+/// all the info necessary to verify the proofs there are some
+/// preconfigured context configurations to fit the risc0 vm versions.
+///
+/// The risc0 vm version `1.x` are not interchangeable that means if had
+/// generated a proof with the `1.1.x` risc0 version you can verify it only
+/// with the `1.1.y` circuit version and so you should use [`VerifierContext::v1_1()`],
+/// any other context, even if has a greater version, will fail to verify the proof.
+///
+/// So, `VerifierContext` define a new constructor for each risc0 minor version
+/// in order to have the right context for any risc0 incompatible vm version.
+///
 #[non_exhaustive]
 pub struct VerifierContext<SC: CircuitCoreDef, RC: CircuitCoreDef> {
     /// A registry of hash functions to be used by the verification process.
@@ -48,7 +59,7 @@ pub struct VerifierContext<SC: CircuitCoreDef, RC: CircuitCoreDef> {
 }
 
 impl VerifierContext<circuit::v1_0::CircuitImpl, circuit::v1_0::recursive::CircuitImpl> {
-    /// Create an empty [VerifierContext].
+    /// Create an empty [VerifierContext] for any risc0 proof generate for any `1.0.x` vm version.
     pub fn v1_0() -> Self {
         Self::empty(&circuit::v1_0::CIRCUIT, &circuit::v1_0::recursive::CIRCUIT)
             .with_suites(Self::default_hash_suites())
@@ -58,7 +69,7 @@ impl VerifierContext<circuit::v1_0::CircuitImpl, circuit::v1_0::recursive::Circu
 }
 
 impl VerifierContext<circuit::v1_1::CircuitImpl, circuit::v1_1::recursive::CircuitImpl> {
-    /// Create an empty [VerifierContext].
+    /// Create an empty [VerifierContext] for any risc0 proof generate for any `1.1.x` vm version.
     pub fn v1_1() -> Self {
         Self::empty(&circuit::v1_1::CIRCUIT, &circuit::v1_1::recursive::CIRCUIT)
             .with_suites(Self::default_hash_suites())
@@ -68,7 +79,7 @@ impl VerifierContext<circuit::v1_1::CircuitImpl, circuit::v1_1::recursive::Circu
 }
 
 impl VerifierContext<circuit::v1_2::CircuitImpl, circuit::v1_2::recursive::CircuitImpl> {
-    /// Create an empty [VerifierContext].
+    /// Create an empty [VerifierContext] for any risc0 proof generate for any `1.2.x` vm version.
     pub fn v1_2() -> Self {
         Self::empty(&circuit::v1_2::CIRCUIT, &circuit::v1_2::recursive::CIRCUIT)
             .with_suites(Self::default_hash_suites())
