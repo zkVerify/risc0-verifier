@@ -200,7 +200,7 @@ impl Digestible for SegmentReceiptVerifierParameters {
 }
 
 impl SegmentReceiptVerifierParameters {
-    /// Default set of parameters used to verify a [SegmentReceipt].
+    /// v1.0 set of parameters used to verify a [SegmentReceipt].
     pub fn v1_0() -> Self {
         use crate::circuit::v1_0::control_id::*;
         use risc0_zkp::adapter::{CircuitInfo, PROOF_SYSTEM_INFO};
@@ -216,10 +216,8 @@ impl SegmentReceiptVerifierParameters {
             circuit_info: crate::circuit::v1_0::CircuitImpl::CIRCUIT_INFO,
         }
     }
-}
 
-impl SegmentReceiptVerifierParameters {
-    /// Default set of parameters used to verify a [SegmentReceipt].
+    /// v1.1 set of parameters used to verify a [SegmentReceipt].
     pub fn v1_1() -> Self {
         use risc0_zkp::adapter::{CircuitInfo, PROOF_SYSTEM_INFO};
         Self::from_max_po2(
@@ -230,7 +228,7 @@ impl SegmentReceiptVerifierParameters {
         )
     }
 
-    /// Default set of parameters used to verify a [SegmentReceipt].
+    /// v1.2 set of parameters used to verify a [SegmentReceipt].
     pub fn v1_2() -> Self {
         use risc0_zkp::adapter::{CircuitInfo, PROOF_SYSTEM_INFO};
         Self::from_max_po2(
@@ -269,4 +267,28 @@ fn control_ids<'a, H: AsRef<str> + 'a>(
         .map(move |po2| resolver(hash_name.as_ref(), po2))
         .take_while(Option::is_some)
         .map(Option::unwrap)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::SegmentReceiptVerifierParameters;
+    use crate::sha::Digestible;
+    use risc0_zkp::core::digest::{digest, Digest};
+    use rstest::rstest;
+
+    // Check that the verifier parameters has a stable digest (and therefore a stable value). This
+    // struct encodes parameters used in verification, and so this value should be updated if and
+    // only if a change to the verifier parameters is expected. Updating the verifier parameters
+    // will result in incompatibility with previous versions.
+    #[rstest]
+    #[case::v1_0(SegmentReceiptVerifierParameters::v1_0().digest(), digest!("62d97bc46d0a877acb857043cbb90a6beafa21c97f01472952fd28be15b47508"))]
+    #[case::v1_1(SegmentReceiptVerifierParameters::v1_1().digest(), digest!("52a27aff2de5a8206e3e88cb8dcb087c1193ede8efaf4889117bc68e704cf29a"))]
+    #[case::v1_2(SegmentReceiptVerifierParameters::v1_2().digest(), digest!("52a27aff2de5a8206e3e88cb8dcb087c1193ede8efaf4889117bc68e704cf29a"))]
+    fn succinct_receipt_verifier_parameters_is_stable(
+        #[case] computed: Digest,
+        #[case] hardcoded: Digest,
+    ) {
+        assert_eq!(computed, hardcoded);
+    }
 }

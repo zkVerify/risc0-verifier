@@ -31,11 +31,11 @@ fn main() {
         ("succinct", ProverOpts::succinct()),
     ];
     let versions = ["1.2.0", "1.1.3", "1.1.1", "1.0.5", "1.0.1"];
-    let out = "output_1.0.3";
+    let out = "output";
 
     for version in &versions[..] {
-        let method_elf = read_elf(format!("m{version}/method"));
-        let method_id = read_method_id(format!("m{version}/info.txt"));
+        let method_elf = read_elf(format!("method-{version}/method"));
+        let method_id = read_method_id(format!("method-{version}/info.txt"));
         println!("============= VERSION {version} =============");
 
         let outdir = PathBuf::from(out).join(version);

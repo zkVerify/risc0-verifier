@@ -18,14 +18,13 @@ ELFs ready at:
 ImageID: 90ef9a7e6df4e68df51665c69eb497339fd6b1f1f9698846ec4922bea777c422 - "target/riscv-guest/riscv32im-risc0-zkvm-elf/docker/method/method"
 ```
 
-Now the program to generate the proofs expecting to have a folder in the form of `m<vm-version>`: for instance if
+Now the program to generate the proofs expecting to have a folder in the form of `method-<vm-version>`: for instance if
 we used the version `1.2.0` we should run the follow commands:
 
 ```sh
-mdamico@miklap:~/devel/first_r0$ mkdir m1.2.0
-mdamico@miklap:~/devel/first_r0$ echo "90ef9a7e6df4e68df51665c69eb497339fd6b1f1f9698846ec4922bea777c422
-> target/riscv-guest/riscv32im-risc0-zkvm-elf/docker/method/method" > m1.2.0/info.txt
-mdamico@miklap:~/devel/first_r0$ cp target/riscv-guest/riscv32im-risc0-zkvm-elf/docker/method/method m1.2.0/
+mdamico@miklap:~/devel/first_r0$ mkdir host/method-1.2.0
+mdamico@miklap:~/devel/first_r0$ echo "90ef9a7e6df4e68df51665c69eb497339fd6b1f1f9698846ec4922bea777c422" > host/method-1.2.0/info.txt
+mdamico@miklap:~/devel/first_r0$ cp target/riscv-guest/riscv32im-risc0-zkvm-elf/docker/method/method host/method-1.2.0/
 ```
 
 ## Change Prover version
