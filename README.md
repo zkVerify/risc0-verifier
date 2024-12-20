@@ -1,27 +1,71 @@
 # risc0-verifier
 
-A verifier for [RISC-Zero](https://github.com/risc0/risc0) STARK proofs.
+A `no-std` verifier for [RISC-Zero](https://github.com/risc0/risc0) STARK proofs.
 
-This crate provides a way for deserializing the proof and the verification key (aka image id) and a function to check if the proof is correct:
+This crate provides a way for deserializing
+
+- `Proof` (aka risc0 receipt)
+- the verification key `Vk` (aka risc0 image id)
+- public inputs `Journal` (aka risc0 journal)
+
+And then you can verify the given proof generated with a specific risc0 vm version against
+the verification key and public inputs.
+
+In order to choose the vm version you should get the `VerifierContext` coherent with the
+vm version used to generate the proof. For instance the following code assume that the proof
+was generated with risc0 vm version `1.2`.
 
 ```rust
-    use risc0_verifier::{verify};
+    use risc0_verifier::*;
+    use std::path::PathBuf;
     use serde::Deserialize;
+    use std::fs::File;
 
     #[derive(Deserialize)]
-    struct Data {
-        vk: [u32; 8],
-        proof: String,
-        pubs: String,
+    pub struct Case {
+        pub receipt_path: PathBuf,
+        pub journal: Journal,
+        pub vk: Vk,
     }
 
-    let Data { vk, proof, pubs } =
-        serde_json::from_reader(std::fs::File::open("./resources/valid_proof_1.json").unwrap()).unwrap();
+    let Case { receipt_path, journal, vk } =
+        serde_json::from_reader(
+            std::fs::File::open("./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json").unwrap()
+        ).unwrap();
 
-    let proof = <Vec<u8>>::try_from(hex::decode(proof).unwrap()).unwrap();
-    let pubs = <Vec<u8>>::try_from(hex::decode(pubs).unwrap()).unwrap();
+    // This just deserialize a risc0 receipt serialized with `ciborium` crate
+    let proof = ciborium::from_reader(File::open(receipt_path).unwrap()).unwrap();
 
-    assert!(verify(vk.into(), &proof, &pubs).is_ok());
+    assert!(verify(&VerifierContext::v1_2(), vk, proof, journal).is_ok());
+```
+
+## Save a risc0 receipt
+
+`risc0-verifier` accepts _any_ **serde** serialized risc0 `Receipt` that doesn't
+contain any groth16 proof. So, is you have a risc0's `Receipt` you can just serialize it
+with `serde` in your preferred format (i.e. `ciborium` or `json`) and then deserialize
+it into `risc0-verifier::Proof` like in the previous example to call `risc0-verifier::verify`.
+
+You can also do the same thing with the `Journal` because the serialized risc0's `Journal` can
+be deserialized into `risc0-verifier::Journal` as well. For the
+`Vk` the risc0 image key bytes can be used directly to build it:
+
+```rust
+    use risc0_verifier::Vk;
+    let vk : Vk = hex_literal::hex!("9db9988d9fbcacadf2bd29fc7c60b98bc4234342fe536eb983169eb6cc248009").into();
+    let r0 : risc0_zkp::core::digest::Digest = [
+        2375596445,
+        2913778847,
+        4230594034,
+        2344181884,
+        1111696324,
+        3111015422,
+        3063813763,
+        159392972
+    ].into();
+
+    assert_eq!(vk.as_words(), r0.as_words());
+    assert_eq!(vk.as_bytes(), r0.as_bytes());
 ```
 
 ## Develop
@@ -37,6 +81,12 @@ to run all CI's steps. You can also use `makers ci` and bypass `cargo` wrapper.
 
 Another useful defined task is `coverage` that executes tests and compute code
 coverage file `lcov.info`.
+
+## Generate the proofs
+
+In `generate_proofs` you can find a both a simple risc0 method and a program that
+generate several proofs (different configurations) for a given compiled methods. You
+can find some notes about how to generate sample proofs in the file `generate_proofs/notes.md`
 
 ## License
 

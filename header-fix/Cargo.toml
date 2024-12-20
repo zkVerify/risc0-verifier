@@ -1,0 +1,10 @@
+[package]
+name = "header-fix"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.94"
+clap = { version = "4.5.23", features = ["derive"] }
+globwalk = "0.9.1"
+regex = "1.11.1"
