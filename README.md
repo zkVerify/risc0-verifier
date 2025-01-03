@@ -88,6 +88,42 @@ In `generate_proofs` you can find a both a simple risc0 method and a program tha
 generate several proofs (different configurations) for a given compiled methods. You
 can find some notes about how to generate sample proofs in the file `generate_proofs/notes.md`
 
+## Convert Old ZkVerify risc0 proofs
+
+Till the `0.2.0` version of this crate the proofs and public inputs accepted by zKVerify
+was coded with `bincode` crate that unfortunately doesn't support `no-std` (old versions
+of zkVerify used native code to implement risc0 verifier). Now zkVerify use this crate to
+implement the risc0 verification in wasm and the binary format is changed:
+
+- the proof are encoded by use CBOR that is less efficient (20% bigger) but there are
+  `no-std` implementations
+- The journal could be sent just by its binary payload in the field `bytes`
+
+This crate also provide a simple command line tool to convert old proof format to the new
+one. You can use both `cargo make build_convert` or
+
+```sh
+cargo build --bin convert_old --release --features convert
+```
+
+and the binary `./target/release/convert_old` can be used to convert both `Journal` and `Proof`:
+the default behavior is to convert binary proofs from standard input to standard output.
+
+```sh
+convert_old --help
+Usage: convert_old [-x] [-X] [-j] [-i <input>] [-o <output>]
+
+Perform conversion.
+
+Options:
+  -x, --hex-input   hex input format
+  -X, --hex-output  hex output format
+  -j, --journal     convert journal
+  -i, --input       input data (none for stdout)
+  -o, --output      output data (none for stdout)
+  --help, help      display usage information
+```
+
 ## License
 
 These crates are released under the [APACHE 2.0 license](LICENSE-APACHE2)

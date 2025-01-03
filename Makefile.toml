@@ -25,6 +25,10 @@ args = ["build"]
 command = "cargo"
 args = ["test"]
 
+[tasks.build_convert]
+command = "cargo"
+args = ["build", "--bin", "convert_old", "--release", "--features", "convert"]
+
 [tasks.format_inst]
 [tasks.format-inst]
 install_crate = { crate_name = "rustfmt", rustup_component_name = "rustfmt", binary = "rustfmt", test_arg = "--help" }
@@ -86,7 +90,7 @@ command = "cargo"
 args = ["udeps", "--all-targets"]
 
 [tasks.ci-common]
-dependencies = ["build", "build-bare-metal", "test", "clippy", "audit", "udeps"]
+dependencies = ["build", "build-bare-metal", "test", "build_convert", "clippy", "audit", "udeps"]
 
 [tasks.ci]
 dependencies = ["format", "header-add", "ci-common"]
