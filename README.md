@@ -119,7 +119,7 @@ Options:
   -x, --hex-input   hex input format
   -X, --hex-output  hex output format
   -j, --journal     convert journal
-  -i, --input       input data (none for stdout)
+  -i, --input       input data (none for stdin)
   -o, --output      output data (none for stdout)
   --help, help      display usage information
 ```

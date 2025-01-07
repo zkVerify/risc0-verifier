@@ -42,7 +42,7 @@ struct Convert {
     #[argh(switch, short = 'j')]
     journal: bool,
 
-    /// input data (none for stdout)
+    /// input data (none for stdin)
     #[argh(option, short = 'i')]
     input: Option<PathBuf>,
 
