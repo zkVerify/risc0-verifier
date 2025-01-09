@@ -154,14 +154,18 @@ mod v1_2 {
 mod use_custom_local_implemented_hash_function {
     use super::*;
 
+    use risc0_verifier::poseidon2_injection::{
+        poseidon2_mix, BabyBearElem, Poseidon2Impl, POSEIDON2_CELLS,
+    };
     use risc0_verifier::sha::Sha256;
     use risc0_zkp::core::digest::Digest;
     use risc0_zkp::core::hash::sha::cpu::Impl;
+
     struct CorrectSha256;
 
     impl HashFn<BabyBear> for CorrectSha256 {
         fn hash_pair(&self, a: &Digest, b: &Digest) -> Box<Digest> {
-            (*Impl::hash_pair(a, b)).into()
+            Impl::hash_pair(a, b).into()
         }
 
         fn hash_elem_slice(&self, slice: &[<BabyBear as Field>::Elem]) -> Box<Digest> {
@@ -223,6 +227,27 @@ mod use_custom_local_implemented_hash_function {
         proof
             .verify(&ctx, case.vk, case.journal.digest())
             .unwrap_err();
+    }
+
+    pub struct LocPoseidon2;
+
+    impl Poseidon2Impl for LocPoseidon2 {
+        #[inline]
+        fn poseidon2_mix(cells: &mut [BabyBearElem; POSEIDON2_CELLS]) {
+            poseidon2_mix(cells);
+        }
+    }
+
+    #[test]
+    fn should_poseidon2_work() {
+        let ctx = VerifierContext::v1_2().with_poseidon2_hash(LocPoseidon2);
+
+        let case: Case =
+            read_all("./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json").unwrap();
+
+        let proof = case.get_proof().unwrap();
+
+        proof.verify(&ctx, case.vk, case.journal.digest()).unwrap()
     }
 }
 

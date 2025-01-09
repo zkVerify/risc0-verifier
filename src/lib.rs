@@ -36,6 +36,7 @@ pub use risc0_zkp::verify::VerificationError;
 mod circuit;
 mod context;
 mod key;
+pub mod poseidon2_injection;
 mod receipt;
 mod receipt_claim;
 mod segment;
