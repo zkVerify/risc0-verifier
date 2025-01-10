@@ -155,7 +155,7 @@ mod use_custom_local_implemented_hash_function {
     use super::*;
 
     use risc0_verifier::poseidon2_injection::{
-        poseidon2_mix, BabyBearElem, Poseidon2Impl, POSEIDON2_CELLS,
+        poseidon2_mix, BabyBearElem, Poseidon2Mix, POSEIDON2_CELLS,
     };
     use risc0_verifier::sha::Sha256;
     use risc0_zkp::core::digest::Digest;
@@ -231,7 +231,7 @@ mod use_custom_local_implemented_hash_function {
 
     pub struct LocPoseidon2;
 
-    impl Poseidon2Impl for LocPoseidon2 {
+    impl Poseidon2Mix for LocPoseidon2 {
         #[inline]
         fn poseidon2_mix(cells: &mut [BabyBearElem; POSEIDON2_CELLS]) {
             poseidon2_mix(cells);
@@ -240,7 +240,7 @@ mod use_custom_local_implemented_hash_function {
 
     #[test]
     fn should_poseidon2_work() {
-        let ctx = VerifierContext::v1_2().with_poseidon2_hash(LocPoseidon2);
+        let ctx = VerifierContext::v1_2().with_poseidon2_mix(LocPoseidon2);
 
         let case: Case =
             read_all("./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json").unwrap();

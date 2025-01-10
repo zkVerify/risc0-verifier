@@ -58,11 +58,11 @@
 //! #     }
 //! # }
 //! use risc0_verifier::poseidon2_injection::{
-//!     BabyBearElem, poseidon2_mix, Poseidon2Impl, POSEIDON2_CELLS
+//!     BabyBearElem, poseidon2_mix, Poseidon2Mix, POSEIDON2_CELLS
 //! };
 //! struct LocPoseidon2;
 //!
-//! impl Poseidon2Impl for LocPoseidon2 {
+//! impl Poseidon2Mix for LocPoseidon2 {
 //!     #[inline]
 //!     fn poseidon2_mix(
 //!         cells: &mut [BabyBearElem; POSEIDON2_CELLS],
@@ -71,7 +71,7 @@
 //!     }
 //! }
 //!
-//! let ctx = VerifierContext::v1_2().with_poseidon2_hash(LocPoseidon2);
+//! let ctx = VerifierContext::v1_2().with_poseidon2_mix(LocPoseidon2);
 //!
 //! let case: Case = read_all("./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json").unwrap();
 //! let proof = case.get_proof().unwrap();
@@ -108,25 +108,25 @@ use risc0_zkp::{
 
 impl<SC: CircuitCoreDef, RC: CircuitCoreDef> VerifierContext<SC, RC> {
     /// Return [VerifierContext] with the inject poseidon2 implementation.
-    pub fn with_poseidon2_hash(
+    pub fn with_poseidon2_mix(
         mut self,
-        poseidon2: impl Poseidon2Impl + Send + Sync + 'static,
+        poseidon2: impl Poseidon2Mix + Send + Sync + 'static,
     ) -> Self {
         self.suites
             .entry("poseidon2".into())
-            .and_modify(|s| s.hashfn = alloc::rc::Rc::new(Poseidon2Adapter::new(poseidon2)));
+            .and_modify(|s| s.hashfn = alloc::rc::Rc::new(Poseidon2Impl::new(poseidon2)));
         self
     }
 }
 
 /// Abstract the capability of implement a base poseidon2 hash function.
-pub trait Poseidon2Impl {
+pub trait Poseidon2Mix {
     fn poseidon2_mix(cells: &mut [BabyBearElem; POSEIDON2_CELLS]);
 }
 
-struct Poseidon2Adapter<T>(T);
+struct Poseidon2Impl<T>(T);
 
-impl<T> Poseidon2Adapter<T> {
+impl<T> Poseidon2Impl<T> {
     fn new(inner: T) -> Self {
         Self(inner)
     }
@@ -140,7 +140,7 @@ fn to_digest(elems: [BabyBearElem; CELLS_OUT]) -> Box<Digest> {
     Box::new(Digest::from(state))
 }
 
-impl<T: Poseidon2Impl> Poseidon2Adapter<T> {
+impl<T: Poseidon2Mix> Poseidon2Impl<T> {
     /// Perform an unpadded hash of a vector of elements.  Because this is unpadded
     /// collision resistance is only true for vectors of the same size.  If the size
     /// is variable, this is subject to length extension attacks.
@@ -171,7 +171,7 @@ impl<T: Poseidon2Impl> Poseidon2Adapter<T> {
     }
 }
 
-impl<T: Poseidon2Impl + Send + Sync> HashFn<BabyBear> for Poseidon2Adapter<T> {
+impl<T: Poseidon2Mix + Send + Sync> HashFn<BabyBear> for Poseidon2Impl<T> {
     fn hash_pair(&self, a: &Digest, b: &Digest) -> Box<Digest> {
         let both: alloc::vec::Vec<BabyBearElem> = a
             .as_words()
@@ -197,7 +197,7 @@ impl<T: Poseidon2Impl + Send + Sync> HashFn<BabyBear> for Poseidon2Adapter<T> {
         &self,
         slice: &[<BabyBear as risc0_zkp::field::Field>::ExtElem],
     ) -> Box<Digest> {
-        to_digest(risc0_zkp::core::hash::poseidon2::unpadded_hash(
+        to_digest(Self::unpadded_hash(
             slice.iter().flat_map(|ee| ee.subelems().iter()),
         ))
     }
