@@ -1,0 +1,26 @@
+name: Check risc0-zkp and risc0-circuit-rv32im Version
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 0 * * 1' # Runs every Monday
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+    
+      - name: Install cargo-make
+        run: cargo install cargo-make
+
+      - name: Fetch dependencies
+        run: cargo fetch
+
+      - name: Run risc0_zkvm_platform version check test
+        run: cargo make check-risc0-deps

@@ -36,6 +36,8 @@ divan = "0.1.17"
 rstest_reuse = "0.7.0"
 hex-literal = "0.4.1"
 sha2 = "0.10.8"
+toml = "0.7"
+semver = "1.0"
 
 [[bench]]
 name = "base"
