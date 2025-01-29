@@ -1,4 +1,4 @@
-name: Check risc0-zkp and risc0-circuit-rv32im Version
+name: Check Versions of select risc0-related dependencies
 
 on:
   push:
