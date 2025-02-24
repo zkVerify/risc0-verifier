@@ -20,12 +20,14 @@ use risc0_zkvm::guest::env;
 fn main() {
     // read the input
     let cycles: u64 = env::read();
-    let mut count: u64 = 0;
 
-    while env::cycle_count() < cycles {
-        count += 1;
-    }
+    let c = loop {
+        let v = env::cycle_count();
+        if v >= cycles {
+            break v;
+        }
+    };
 
     // write public output to the journal
-    env::commit(&count);
+    env::commit(&c);
 }

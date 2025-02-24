@@ -97,7 +97,7 @@ risc0-zkp = { version = "=1.1.3" }
 Also, here this cannot be enough and then like in the previous section run the following script:
 
 ```sh
-export NEW_VERSION="=1.1.3";
+export NEW_VERSION="1.1.3";
 
 for p in risc0-zkvm risc0-circuit-recursion \
     risc0-circuit-rv32im \

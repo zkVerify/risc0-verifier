@@ -15,19 +15,21 @@
 // limitations under the License.
 //
 
+use crate::{
+    circuit::{self, CircuitCoreDef},
+    receipt::succinct::SuccinctReceiptVerifierParameters,
+    segment::SegmentReceiptVerifierParameters,
+    CompositeReceipt,
+};
 use alloc::{collections::BTreeMap, string::String};
+use risc0_core::field::baby_bear::BabyBearElem;
+use risc0_zkp::verify::{ReadIOP, VerificationError};
 use risc0_zkp::{
     core::hash::{
         blake2b::Blake2bCpuHashSuite, poseidon2::Poseidon2HashSuite, sha::Sha256HashSuite,
         HashSuite,
     },
     field::baby_bear::BabyBear,
-};
-
-use crate::{
-    circuit::{self, CircuitCoreDef},
-    receipt::succinct::SuccinctReceiptVerifierParameters,
-    segment::SegmentReceiptVerifierParameters,
 };
 
 /// Context available to the verification process. The context contains
@@ -131,5 +133,35 @@ impl<SC: CircuitCoreDef, RC: CircuitCoreDef> VerifierContext<SC, RC> {
     ) -> Self {
         self.succinct_verifier_parameters = Some(params);
         self
+    }
+
+    pub fn extract_composite_po2(
+        &self,
+        composite: &CompositeReceipt,
+    ) -> Result<alloc::vec::Vec<u32>, VerificationError> {
+        composite
+            .segments
+            .iter()
+            .map(|s| self.extract_po2_seg(s.seal.as_slice(), s.hashfn.as_str()))
+            .collect()
+    }
+
+    fn extract_po2_seg(&self, seal: &[u32], hashfn: &str) -> Result<u32, VerificationError> {
+        let suite = self
+            .suites
+            .get(hashfn)
+            .ok_or(VerificationError::InvalidHashSuite)?;
+        // Make IOP
+        let mut iop = ReadIOP::<BabyBear>::new(seal, suite.rng.as_ref());
+        let slice: &[BabyBearElem] = iop.read_field_elem_slice(SC::OUTPUT_SIZE + 1);
+        let (_, &[po2_elem]) = slice.split_at(SC::OUTPUT_SIZE) else {
+            unreachable!()
+        };
+        use risc0_zkp::field::Elem;
+        let (&[po2], &[]) = po2_elem.to_u32_words().split_at(1) else {
+            // That means BabyBear field is more than one u32
+            core::panic!("po2 elem is larger than u32");
+        };
+        Ok(po2)
     }
 }

@@ -94,6 +94,40 @@ fn verify_valid_proof() {
     verify(&VerifierContext::v1_0(), case.vk, proof, case.journal).unwrap()
 }
 
+#[rstest]
+fn read_po2_segment(
+    #[values(16, 17, 18, 19, 20, 21)] expected_po2: u32,
+    #[values("sha", "poseidon2")] hash: &str,
+) {
+    let case: Case = read_all(format!(
+        "./resources/cases/single_full_segment/{hash}_{expected_po2}.json"
+    ))
+    .unwrap();
+    let proof = case.get_proof().unwrap();
+
+    let context = VerifierContext::v1_2();
+
+    let po2s = context
+        .extract_composite_po2(proof.inner.composite().unwrap())
+        .unwrap();
+
+    assert_eq!(vec![expected_po2], po2s)
+}
+
+#[test]
+fn read_po2_segments() {
+    let case: Case = read_all("./resources/cases/prover_1.2.0/vm_1.2.0/sha_22.json").unwrap();
+    let proof = case.get_proof().unwrap();
+
+    let context = VerifierContext::v1_2();
+
+    let po2s = context
+        .extract_composite_po2(proof.inner.composite().unwrap())
+        .unwrap();
+
+    assert_eq!(vec![20, 20, 17], po2s)
+}
+
 mod v1_0 {
     use super::*;
 
