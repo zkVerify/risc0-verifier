@@ -65,13 +65,15 @@
 //! impl Poseidon2Mix for LocPoseidon2 {
 //!     #[inline]
 //!     fn poseidon2_mix(
+//!         &self,
 //!         cells: &mut [BabyBearElem; POSEIDON2_CELLS],
 //!     ) {
 //!         poseidon2_mix(cells);
 //!     }
 //! }
 //!
-//! let ctx = VerifierContext::v1_2().with_poseidon2_mix(LocPoseidon2);
+//! let mut ctx = VerifierContext::v1_2();
+//! ctx.set_poseidon2_mix_impl(LocPoseidon2);
 //!
 //! let case: Case = read_all("./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json").unwrap();
 //! let proof = case.get_proof().unwrap();
@@ -108,20 +110,31 @@ use risc0_zkp::{
 
 impl<SC: CircuitCoreDef, RC: CircuitCoreDef> VerifierContext<SC, RC> {
     /// Return [VerifierContext] with the inject poseidon2 implementation.
-    pub fn with_poseidon2_mix(
-        mut self,
-        poseidon2: impl Poseidon2Mix + Send + Sync + 'static,
-    ) -> Self {
+    pub fn set_poseidon2_mix_impl(&mut self, poseidon2: impl Poseidon2Mix + Send + Sync + 'static) {
         self.suites
             .entry("poseidon2".into())
             .and_modify(|s| s.hashfn = alloc::rc::Rc::new(Poseidon2Impl::new(poseidon2)));
-        self
     }
 }
 
 /// Abstract the capability of implement a base poseidon2 hash function.
 pub trait Poseidon2Mix {
-    fn poseidon2_mix(cells: &mut [BabyBearElem; POSEIDON2_CELLS]);
+    fn poseidon2_mix(&self, cells: &mut [BabyBearElem; POSEIDON2_CELLS]);
+}
+
+impl Poseidon2Mix for alloc::boxed::Box<dyn Poseidon2Mix + Send + Sync> {
+    fn poseidon2_mix(&self, cells: &mut [BabyBearElem; POSEIDON2_CELLS]) {
+        self.as_ref().poseidon2_mix(cells)
+    }
+}
+
+pub trait Boxed {
+    fn boxed(self) -> Box<dyn Poseidon2Mix + Send + Sync>;
+}
+impl<T: Poseidon2Mix + Send + Sync + 'static> Boxed for T {
+    fn boxed(self) -> Box<dyn Poseidon2Mix + Send + Sync> {
+        Box::new(self)
+    }
 }
 
 struct Poseidon2Impl<T>(T);
@@ -144,7 +157,7 @@ impl<T: Poseidon2Mix> Poseidon2Impl<T> {
     /// Perform an unpadded hash of a vector of elements.  Because this is unpadded
     /// collision resistance is only true for vectors of the same size.  If the size
     /// is variable, this is subject to length extension attacks.
-    fn unpadded_hash<'a, I>(iter: I) -> [BabyBearElem; CELLS_OUT]
+    fn unpadded_hash<'a, I>(&self, iter: I) -> [BabyBearElem; CELLS_OUT]
     where
         I: Iterator<Item = &'a BabyBearElem>,
     {
@@ -156,7 +169,7 @@ impl<T: Poseidon2Mix> Poseidon2Impl<T> {
             count += 1;
             unmixed += 1;
             if unmixed == CELLS_RATE {
-                T::poseidon2_mix(&mut state);
+                poseidon2_mix(&mut state);
                 unmixed = 0;
             }
         }
@@ -165,7 +178,7 @@ impl<T: Poseidon2Mix> Poseidon2Impl<T> {
             for elem in state.iter_mut().take(CELLS_RATE).skip(unmixed) {
                 *elem = BabyBearElem::ZERO;
             }
-            T::poseidon2_mix(&mut state);
+            self.0.poseidon2_mix(&mut state);
         }
         state.as_slice()[0..CELLS_OUT].try_into().unwrap()
     }
@@ -183,22 +196,20 @@ impl<T: Poseidon2Mix + Send + Sync> HashFn<BabyBear> for Poseidon2Impl<T> {
         for elem in &both {
             assert!(elem.is_reduced());
         }
-        to_digest(Self::unpadded_hash(both.iter()))
+        to_digest(self.unpadded_hash(both.iter()))
     }
 
     fn hash_elem_slice(
         &self,
         slice: &[<BabyBear as risc0_zkp::field::Field>::Elem],
     ) -> Box<Digest> {
-        to_digest(Self::unpadded_hash(slice.iter()))
+        to_digest(self.unpadded_hash(slice.iter()))
     }
 
     fn hash_ext_elem_slice(
         &self,
         slice: &[<BabyBear as risc0_zkp::field::Field>::ExtElem],
     ) -> Box<Digest> {
-        to_digest(Self::unpadded_hash(
-            slice.iter().flat_map(|ee| ee.subelems().iter()),
-        ))
+        to_digest(self.unpadded_hash(slice.iter().flat_map(|ee| ee.subelems().iter())))
     }
 }

@@ -15,14 +15,16 @@
 // limitations under the License.
 //
 
+use crate::poseidon2_injection::Poseidon2Mix;
 use crate::{
     circuit::{self, CircuitCoreDef},
     receipt::succinct::SuccinctReceiptVerifierParameters,
     segment::SegmentReceiptVerifierParameters,
-    CompositeReceipt,
+    CompositeReceipt, Digestible, Journal, Proof,
 };
 use alloc::{collections::BTreeMap, string::String};
 use risc0_core::field::baby_bear::BabyBearElem;
+use risc0_zkp::core::digest::Digest;
 use risc0_zkp::verify::{ReadIOP, VerificationError};
 use risc0_zkp::{
     core::hash::{
@@ -90,6 +92,115 @@ impl VerifierContext<circuit::v1_2::CircuitImpl, circuit::v1_2::recursive::Circu
     }
 }
 
+/// Dynamic verifier trait. It's implemented by all verifier context and can be
+/// used with dynamic dispatching. Expose just the functionalities that can be
+/// dispatched dynamically.
+///
+pub trait Verifier {
+    /// Verify the proof against this verifier context, the given `image_id` and journal.
+    fn verify(
+        &self,
+        image_id: Digest,
+        proof: Proof,
+        pubs: Journal,
+    ) -> Result<(), VerificationError>;
+    fn extract_composite_po2(
+        &self,
+        composite: &CompositeReceipt,
+    ) -> Result<alloc::vec::Vec<u32>, VerificationError> {
+        composite
+            .segments
+            .iter()
+            .map(|s| self.extract_po2_seg(s.seal.as_slice(), s.hashfn.as_str()))
+            .collect()
+    }
+
+    fn suites(&self) -> &BTreeMap<String, HashSuite<BabyBear>>;
+
+    fn set_suites(&mut self, suites: BTreeMap<String, HashSuite<BabyBear>>);
+
+    fn set_poseidon2_mix_impl(
+        &mut self,
+        poseidon2: alloc::boxed::Box<dyn Poseidon2Mix + Send + Sync + 'static>,
+    );
+
+    fn extract_po2_seg(&self, seal: &[u32], hashfn: &str) -> Result<u32, VerificationError>;
+}
+
+impl<SC: CircuitCoreDef, RC: CircuitCoreDef> Verifier for VerifierContext<SC, RC> {
+    fn verify(
+        &self,
+        image_id: Digest,
+        proof: Proof,
+        journal: Journal,
+    ) -> Result<(), VerificationError> {
+        proof.verify(self, image_id, journal.digest())
+    }
+
+    fn suites(&self) -> &BTreeMap<String, HashSuite<BabyBear>> {
+        &self.suites
+    }
+
+    fn set_suites(&mut self, suites: BTreeMap<String, HashSuite<BabyBear>>) {
+        self.suites = suites;
+    }
+    fn set_poseidon2_mix_impl(
+        &mut self,
+        poseidon2: alloc::boxed::Box<dyn Poseidon2Mix + Send + Sync + 'static>,
+    ) {
+        Self::set_poseidon2_mix_impl(self, poseidon2)
+    }
+
+    fn extract_po2_seg(&self, seal: &[u32], hashfn: &str) -> Result<u32, VerificationError> {
+        let suite = self
+            .suites
+            .get(hashfn)
+            .ok_or(VerificationError::InvalidHashSuite)?;
+        // Make IOP
+        let mut iop = ReadIOP::<BabyBear>::new(seal, suite.rng.as_ref());
+        let slice: &[BabyBearElem] = iop.read_field_elem_slice(SC::OUTPUT_SIZE + 1);
+        let (_, &[po2_elem]) = slice.split_at(SC::OUTPUT_SIZE) else {
+            unreachable!()
+        };
+        use risc0_zkp::field::Elem;
+        let (&[po2], &[]) = po2_elem.to_u32_words().split_at(1) else {
+            // That means BabyBear field is more than one u32
+            core::panic!("po2 elem is larger than u32");
+        };
+        Ok(po2)
+    }
+}
+
+impl Verifier for alloc::boxed::Box<dyn Verifier> {
+    fn verify(
+        &self,
+        image_id: Digest,
+        proof: Proof,
+        journal: Journal,
+    ) -> Result<(), VerificationError> {
+        self.as_ref().verify(image_id, proof, journal)
+    }
+
+    fn suites(&self) -> &BTreeMap<String, HashSuite<BabyBear>> {
+        self.as_ref().suites()
+    }
+
+    fn set_suites(&mut self, suites: BTreeMap<String, HashSuite<BabyBear>>) {
+        self.as_mut().set_suites(suites);
+    }
+
+    fn set_poseidon2_mix_impl(
+        &mut self,
+        poseidon2: alloc::boxed::Box<dyn Poseidon2Mix + Send + Sync + 'static>,
+    ) {
+        self.as_mut().set_poseidon2_mix_impl(poseidon2)
+    }
+
+    fn extract_po2_seg(&self, seal: &[u32], hashfn: &str) -> Result<u32, VerificationError> {
+        self.as_ref().extract_po2_seg(seal, hashfn)
+    }
+}
+
 impl<SC: CircuitCoreDef, RC: CircuitCoreDef> VerifierContext<SC, RC> {
     /// Create an empty [VerifierContext].
     pub fn empty(circuit: &'static SC, recursive_circuit: &'static RC) -> Self {
@@ -102,7 +213,7 @@ impl<SC: CircuitCoreDef, RC: CircuitCoreDef> VerifierContext<SC, RC> {
         }
     }
 
-    /// Return the mapping of hash suites used in the defaul [VerifierContext].
+    /// Return the mapping of hash suites used in the default [VerifierContext].
     pub fn default_hash_suites() -> BTreeMap<String, HashSuite<BabyBear>> {
         BTreeMap::from([
             ("blake2b".into(), Blake2bCpuHashSuite::new_suite()),
@@ -135,33 +246,7 @@ impl<SC: CircuitCoreDef, RC: CircuitCoreDef> VerifierContext<SC, RC> {
         self
     }
 
-    pub fn extract_composite_po2(
-        &self,
-        composite: &CompositeReceipt,
-    ) -> Result<alloc::vec::Vec<u32>, VerificationError> {
-        composite
-            .segments
-            .iter()
-            .map(|s| self.extract_po2_seg(s.seal.as_slice(), s.hashfn.as_str()))
-            .collect()
-    }
-
-    fn extract_po2_seg(&self, seal: &[u32], hashfn: &str) -> Result<u32, VerificationError> {
-        let suite = self
-            .suites
-            .get(hashfn)
-            .ok_or(VerificationError::InvalidHashSuite)?;
-        // Make IOP
-        let mut iop = ReadIOP::<BabyBear>::new(seal, suite.rng.as_ref());
-        let slice: &[BabyBearElem] = iop.read_field_elem_slice(SC::OUTPUT_SIZE + 1);
-        let (_, &[po2_elem]) = slice.split_at(SC::OUTPUT_SIZE) else {
-            unreachable!()
-        };
-        use risc0_zkp::field::Elem;
-        let (&[po2], &[]) = po2_elem.to_u32_words().split_at(1) else {
-            // That means BabyBear field is more than one u32
-            core::panic!("po2 elem is larger than u32");
-        };
-        Ok(po2)
+    pub fn boxed(self) -> alloc::boxed::Box<dyn Verifier> {
+        alloc::boxed::Box::new(self)
     }
 }

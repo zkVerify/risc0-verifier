@@ -16,7 +16,7 @@
 use serde::{Deserialize, Serialize};
 
 /// The verification key (aka image id, the hash of the guest program)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Vk(pub risc0_zkp::core::digest::Digest);
 
 impl Vk {
