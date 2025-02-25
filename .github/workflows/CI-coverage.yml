@@ -19,6 +19,10 @@ jobs:
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4
+      - name: Install latest stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
       - name: Install coverage tools
         run: |
             cargo install --force cargo-llvm-cov
