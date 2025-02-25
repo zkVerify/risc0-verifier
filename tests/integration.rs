@@ -13,9 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use risc0_verifier::verify;
 use risc0_verifier::Digestible as _;
 use risc0_verifier::Verifier;
+use risc0_verifier::{verify, SegmentInfo};
 use risc0_verifier::{
     CircuitCoreDef, CompositeReceipt, Journal, MaybePruned, Proof, ReceiptClaim, SuccinctReceipt,
     VerifierContext, Vk,
@@ -111,7 +111,7 @@ fn read_po2_segment(
     #[values(VerifierContext::v1_0().boxed(), VerifierContext::v1_1().boxed(), VerifierContext::v1_2().boxed())]
     verifier: Box<dyn Verifier>,
     #[values(16, 17, 18, 19, 20, 21)] expected_po2: u32,
-    #[values("sha", "poseidon2")] hash: &str,
+    #[values("sha-256", "poseidon2")] hash: &str,
 ) {
     let case: Case = read_all(format!(
         "./resources/cases/single_full_segment/{hash}_{expected_po2}.json"
@@ -120,10 +120,10 @@ fn read_po2_segment(
     let proof = case.get_proof().unwrap();
 
     let po2s = verifier
-        .extract_composite_po2(proof.inner.composite().unwrap())
+        .extract_composite_segments_info(proof.inner.composite().unwrap())
         .unwrap();
 
-    assert_eq!(vec![expected_po2], po2s)
+    assert_eq!(vec![SegmentInfo::new(hash.to_owned(), expected_po2)], po2s)
 }
 
 #[rstest]
@@ -135,10 +135,38 @@ fn read_po2_segments(
     let proof = case.get_proof().unwrap();
 
     let po2s = verifier
-        .extract_composite_po2(proof.inner.composite().unwrap())
+        .extract_composite_segments_info(proof.inner.composite().unwrap())
         .unwrap();
 
-    assert_eq!(vec![20, 20, 17], po2s)
+    assert_eq!(
+        vec![
+            SegmentInfo::new("sha-256".to_owned(), 20),
+            SegmentInfo::new("sha-256".to_owned(), 20),
+            SegmentInfo::new("sha-256".to_owned(), 17)
+        ],
+        po2s
+    )
+}
+
+#[test]
+fn read_po2_segments_case_limit_segments() {
+    let case: Case = read_all("./resources/cases/poseidon2_22_segment_20.json").unwrap();
+    let proof = case.get_proof().unwrap();
+
+    let po2s = VerifierContext::v1_2()
+        .extract_composite_segments_info(proof.inner.composite().unwrap())
+        .unwrap();
+
+    let s_info = SegmentInfo::new("poseidon2".to_owned(), 20);
+    assert_eq!(
+        vec![
+            s_info.clone(),
+            s_info.clone(),
+            s_info.clone(),
+            s_info.clone()
+        ],
+        po2s
+    )
 }
 
 mod v1_0 {

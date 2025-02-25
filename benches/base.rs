@@ -150,6 +150,20 @@ pub mod sha {
     }
 }
 
+#[divan::bench]
+fn case_limit() {
+    let ctx = VerifierContext::v1_2();
+    let case: Case = read_json("resources/cases/poseidon2_22_segment_20.json").unwrap();
+    let proof = read_bin(case.receipt_path).unwrap();
+
+    compute(
+        divan::black_box(&ctx),
+        divan::black_box(&proof),
+        divan::black_box(case.vk),
+        divan::black_box(case.journal.digest()),
+    )
+}
+
 pub mod poseidon2 {
     use super::*;
 

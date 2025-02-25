@@ -92,6 +92,22 @@ impl VerifierContext<circuit::v1_2::CircuitImpl, circuit::v1_2::recursive::Circu
     }
 }
 
+#[derive(Clone, PartialEq, Debug)]
+/// The segment info.
+pub struct SegmentInfo {
+    /// Hash function name
+    pub hashfn: String,
+    /// The power of 2 proof size
+    pub po2: u32,
+}
+
+impl SegmentInfo {
+    /// Create a new segment info
+    pub fn new(hashfn: String, po2: u32) -> Self {
+        Self { hashfn, po2 }
+    }
+}
+
 /// Dynamic verifier trait. It's implemented by all verifier context and can be
 /// used with dynamic dispatching. Expose just the functionalities that can be
 /// dispatched dynamically.
@@ -104,14 +120,20 @@ pub trait Verifier {
         proof: Proof,
         pubs: Journal,
     ) -> Result<(), VerificationError>;
-    fn extract_composite_po2(
+    fn extract_composite_segments_info(
         &self,
         composite: &CompositeReceipt,
-    ) -> Result<alloc::vec::Vec<u32>, VerificationError> {
+    ) -> Result<alloc::vec::Vec<SegmentInfo>, VerificationError> {
         composite
             .segments
             .iter()
-            .map(|s| self.extract_po2_seg(s.seal.as_slice(), s.hashfn.as_str()))
+            .map(|s| {
+                self.extract_segment_info(s.seal.as_slice(), s.hashfn.as_str())
+                    .map(|po2| SegmentInfo {
+                        hashfn: s.hashfn.clone(),
+                        po2,
+                    })
+            })
             .collect()
     }
 
@@ -124,7 +146,7 @@ pub trait Verifier {
         poseidon2: alloc::boxed::Box<dyn Poseidon2Mix + Send + Sync + 'static>,
     );
 
-    fn extract_po2_seg(&self, seal: &[u32], hashfn: &str) -> Result<u32, VerificationError>;
+    fn extract_segment_info(&self, seal: &[u32], hashfn: &str) -> Result<u32, VerificationError>;
 }
 
 impl<SC: CircuitCoreDef, RC: CircuitCoreDef> Verifier for VerifierContext<SC, RC> {
@@ -151,7 +173,7 @@ impl<SC: CircuitCoreDef, RC: CircuitCoreDef> Verifier for VerifierContext<SC, RC
         Self::set_poseidon2_mix_impl(self, poseidon2)
     }
 
-    fn extract_po2_seg(&self, seal: &[u32], hashfn: &str) -> Result<u32, VerificationError> {
+    fn extract_segment_info(&self, seal: &[u32], hashfn: &str) -> Result<u32, VerificationError> {
         let suite = self
             .suites
             .get(hashfn)
@@ -196,8 +218,8 @@ impl Verifier for alloc::boxed::Box<dyn Verifier> {
         self.as_mut().set_poseidon2_mix_impl(poseidon2)
     }
 
-    fn extract_po2_seg(&self, seal: &[u32], hashfn: &str) -> Result<u32, VerificationError> {
-        self.as_ref().extract_po2_seg(seal, hashfn)
+    fn extract_segment_info(&self, seal: &[u32], hashfn: &str) -> Result<u32, VerificationError> {
+        self.as_ref().extract_segment_info(seal, hashfn)
     }
 }
 

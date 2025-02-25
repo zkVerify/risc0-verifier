@@ -23,7 +23,7 @@ extern crate alloc;
 extern crate core;
 
 pub use circuit::CircuitCoreDef;
-pub use context::{Verifier, VerifierContext};
+pub use context::{SegmentInfo, Verifier, VerifierContext};
 pub use key::Vk;
 pub use receipt::{
     composite::CompositeReceipt, succinct::SuccinctReceipt, InnerReceipt, Journal, Proof,
