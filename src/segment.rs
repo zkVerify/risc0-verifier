@@ -241,6 +241,17 @@ impl SegmentReceiptVerifierParameters {
         )
     }
 
+    /// v1.2 set of parameters used to verify a [SegmentReceipt].
+    pub fn v1_3() -> Self {
+        use risc0_zkp::adapter::{CircuitInfo, PROOF_SYSTEM_INFO};
+        Self::from_max_po2(
+            &crate::circuit::v1_3::control_id,
+            DEFAULT_MAX_PO2,
+            PROOF_SYSTEM_INFO,
+            crate::circuit::v1_3::CircuitImpl::CIRCUIT_INFO,
+        )
+    }
+
     fn from_max_po2(
         resolver: &dyn Fn(&str, usize) -> Option<Digest>,
         max_po2: usize,

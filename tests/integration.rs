@@ -232,6 +232,27 @@ mod v1_2 {
     }
 }
 
+mod v1_3 {
+    use super::*;
+
+    #[rstest]
+    #[case::should_pass(VerifierContext::v1_3().boxed())]
+    #[should_panic(expected = "control_id mismatch")]
+    #[case::should_fails_with_old_verifier(VerifierContext::v1_0().boxed())]
+    fn verify_valid_proof(
+        #[case] verifier: Box<dyn Verifier>,
+        #[files("./resources/cases/prover_1.3.*/**/*.json")] path: PathBuf,
+    ) {
+        let case: Case = read_all(path).unwrap();
+
+        let proof = case.get_proof().unwrap();
+
+        verifier
+            .verify(case.vk.into(), proof, case.journal)
+            .unwrap()
+    }
+}
+
 mod use_custom_local_implemented_hash_function {
     use super::*;
 
@@ -506,6 +527,14 @@ fn fails_on_invalid_succinct_claim<SC: CircuitCoreDef, RC: CircuitCoreDef>(
     VerifierContext::v1_2(),
     "./resources/cases/prover_1.2.0/vm_1.2.0/sha_22.json"
 )]
+#[case::poseidon_proof_v1_3(
+    VerifierContext::v1_3(),
+    "./resources/cases/prover_1.3.0/vm_1.3.0/poseidon2_22.json"
+)]
+#[case::sha_proof_v1_3(
+    VerifierContext::v1_3(),
+    "./resources/cases/prover_1.3.0/vm_1.3.0/sha_22.json"
+)]
 fn segments(#[case] ctx: VerifierContext<SC, RC>, #[case] path: &str) {}
 
 #[rstest_reuse::template]
@@ -521,6 +550,10 @@ fn segments(#[case] ctx: VerifierContext<SC, RC>, #[case] path: &str) {}
 #[case::succinct_proof_v1_2(
     VerifierContext::v1_2(),
     "./resources/cases/prover_1.2.0/vm_1.2.0/succinct_22.json"
+)]
+#[case::succinct_proof_v1_3(
+    VerifierContext::v1_3(),
+    "./resources/cases/prover_1.3.0/vm_1.3.0/succinct_22.json"
 )]
 fn succinct(#[case] ctx: VerifierContext<SC, RC>, #[case] path: &str) {}
 
@@ -550,6 +583,14 @@ fn succinct(#[case] ctx: VerifierContext<SC, RC>, #[case] path: &str) {}
     VerifierContext::v1_2(),
     "./resources/cases/prover_1.2.0/vm_1.2.0/sha_22.json"
 )]
+#[case::poseidon_proof_v1_3(
+    VerifierContext::v1_3(),
+    "./resources/cases/prover_1.3.0/vm_1.3.0/poseidon2_22.json"
+)]
+#[case::sha_proof_v1_3(
+    VerifierContext::v1_3(),
+    "./resources/cases/prover_1.3.0/vm_1.3.0/sha_22.json"
+)]
 #[case::succinct_proof_v1_0(
     VerifierContext::v1_0(),
     "./resources/cases/prover_1.0.3/vm_1.0.5/succinct_22.json"
@@ -561,6 +602,10 @@ fn succinct(#[case] ctx: VerifierContext<SC, RC>, #[case] path: &str) {}
 #[case::succinct_proof_v1_2(
     VerifierContext::v1_2(),
     "./resources/cases/prover_1.2.0/vm_1.2.0/succinct_22.json"
+)]
+#[case::succinct_proof_v1_3(
+    VerifierContext::v1_3(),
+    "./resources/cases/prover_1.3.0/vm_1.3.0/succinct_22.json"
 )]
 fn all(#[case] ctx: VerifierContext<SC, RC>, #[case] path: &str) {}
 

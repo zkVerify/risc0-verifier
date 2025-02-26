@@ -41,9 +41,9 @@ cargo make ci
 
 If
 
-- Everything pass : Hooray! You hit the soother case!
+- Everything pass : Hooray! You hit the smoother case!
 - Some compilation issue: try to understand what is changed and report the changes on our code
-- Some tests fails: that's the cleaver case, maybe is changed something in the `risc0-zkvm`
+- Some tests fails: maybe something has changed in the `risc0-zkvm`
   verification code
 
 ## Generate Test case
@@ -95,11 +95,12 @@ do
 done
 ```
 
-The previous step is only necesseray if the version you're using is not the last one, otherwise
+The previous step is only necessary if the version you're using is not the last one, otherwise
 the changes in `Cargo.toml` are enough.
 
-If you don't have `cargo-risczero` command please install it. Now to compile it
-from `generate_proofs` you can just do
+If you don't have `cargo-risczero` command please install it. 
+Please note that now Risc0 toolchain components are managed via [rzup](https://github.com/risc0/risc0/tree/main/rzup#rzup).
+Now to compile it from `generate_proofs` you can just do
 
 ```sh
 cargo risczero build --manifest-path methods/guest/Cargo.toml
@@ -118,7 +119,7 @@ We save the data in `host/method-1.3.0`:
 ```sh
 mkdir host/method-${NEW_VERSION}
 echo "90ef9a7e6df4e68df51665c69eb497339fd6b1f1f9698846ec4922bea777c422" > host/method-${NEW_VERSION}/info.txt
-cp target/riscv-guest/riscv32im-risc0-zkvm-elf/docker/method/method host/method-${NEW_VERSION}/
+cp methods/guest/target/riscv32im-risc0-zkvm-elf/docker/method  host/method-${NEW_VERSION}/
 ```
 
 ### Generate the proofs for 1.3.0 version
@@ -138,17 +139,11 @@ do
 done
 ```
 
-Now that we have the new method we should generate the proof. Open `host/src/main.rs` file and
-change the line with the version lists to add the new version.
+Now that we have the new method we should generate the proof for the `1.3.0` version that will be 
+enough to write our first tests:
 
-```rust
-    let versions = ["1.2.0", "1.1.3", "1.1.1", "1.0.5", "1.0.1"];
-```
-
-into
-
-```rust
-    let versions = ["1.3.0", "1.2.0", "1.1.3", "1.1.1", "1.0.5", "1.0.1"];
+```sh
+./generate_proofs/host/target/release/host -m ./host/method-1.3.0
 ```
 
 Now you can run it to generate all the proofs in the `output` folder: first it will
@@ -178,7 +173,7 @@ cp -r resources/cases/prover_1.3.0/vm_1.2.0 resources/cases/prover_1.3.0/vm_1.3.
 In every json of this new folder `resources/cases/prover_1.3.0/vm_1.3.0` you need to
 replace the string `resources/receipts/1.3.0-1.2.0` into `resources/receipts/1.3.0-1.3.0`:
 the name stands for `<prover-version>-<vm-version>`.
-Here also the vk is changed: you can get the new vk in `generate_proofs/host/output/1.3.0/id.json`
+Here also the vk is changed: you can get the new vk in `generate_proofs/host/output/id.json`
 and replace the values in all json.
 
 Now we should copy the proof in the `resource/receipts/1.3.0-*/` folders. Now we can make a
@@ -190,7 +185,7 @@ So, when the proofs for the version `1.3.0` are ready we can copy them and then 
 
 ```sh
 mkdir resources/receipts/1.3.0-1.3.0
-cp generate_proofs/host/output/1.3.0/receipt_*.bin resources/receipts/1.3.0-1.3.0
+cp generate_proofs/output/receipt_*.bin resources/receipts/1.3.0-1.3.0
 cd resources/receipts/1.3.0-1.3.0
 for f in `ls`; do mv $f ${f#receipt_}; done 
 ```
@@ -250,12 +245,12 @@ impl VerifierContext<circuit::v1_2::CircuitImpl, circuit::v1_2::recursive::Circu
 ```
 
 **We changed just the name of the function but not all other references**. This because we
-want just to compile the tests and see that they're falling: we'll fix it later when we
-implement the new circuit.
+want just to compile the tests and see that they're failing: we'll fix them later when we
+will implement the new circuit.
 
-Now run again the tests that should compile butt all test related to verify the new prover
-should fail: otherwise the new version doesn't introduce an incompatibility... **STRANGE**
-double check it.
+Now run again the tests (it should compile) but the new ones should fail:
+otherwise the new version doesn't introduce an incompatibility... **STRANGE**
+double check.
 
 ## Implement the new circuit by relay on risc0 crate
 

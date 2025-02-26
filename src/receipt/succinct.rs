@@ -272,6 +272,17 @@ impl SuccinctReceiptVerifierParameters {
             circuit_info: circuit::CircuitImpl::CIRCUIT_INFO,
         }
     }
+    pub fn v1_3() -> Self {
+        use crate::circuit::v1_3::recursive as circuit;
+        Self {
+            // ALLOWED_CONTROL_ROOT is a precalculated version of the control root, as calculated
+            // by the allowed_control_root function above.
+            control_root: circuit::control_id::ALLOWED_CONTROL_ROOT,
+            inner_control_root: None,
+            proof_system_info: PROOF_SYSTEM_INFO,
+            circuit_info: circuit::CircuitImpl::CIRCUIT_INFO,
+        }
+    }
 }
 
 #[cfg(test)]
