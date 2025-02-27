@@ -99,10 +99,10 @@ args = ["machete"]
 
 [tasks.ci-common]
 dependencies = ["build", "build-bare-metal", "test", "build-convert", "build-host-generate-proofs", "clippy", "audit",
-    "udeps", "machete"]
+    "udeps"]
 
 [tasks.ci]
-dependencies = ["format", "header-add", "ci-common"]
+dependencies = ["format", "header-add", "ci-common", "machete"]
 
 [tasks.ci-remote]
 dependencies = ["format-check", "header-check", "ci-common"]
