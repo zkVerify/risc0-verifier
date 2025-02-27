@@ -18,6 +18,7 @@
 
 use alloc::{collections::BTreeSet, string::String, vec::Vec};
 use risc0_binfmt::{tagged_iter, tagged_struct, Digestible, ExitCode, SystemState};
+//noinspection RsUnresolvedPath RustRover False Positive
 use risc0_circuit_rv32im::layout::{SystemStateLayout, OUT_LAYOUT};
 use risc0_zkp::{
     adapter::{ProtocolInfo, PROOF_SYSTEM_INFO},
@@ -114,10 +115,11 @@ impl SegmentReceipt {
 
     /// Number of bytes used by the seal for this receipt.
     pub fn seal_size(&self) -> usize {
-        core::mem::size_of_val(self.seal.as_slice())
+        size_of_val(self.seal.as_slice())
     }
 }
 
+//noinspection RsUnresolvedPath RustRover False positive SystemStateLayout
 fn decode_system_state_from_io<E: Elem + Into<u32>>(
     sys_state: Tree<E, SystemStateLayout>,
 ) -> Result<SystemState, VerificationError> {
@@ -133,6 +135,7 @@ fn decode_system_state_from_io<E: Elem + Into<u32>>(
     Ok(SystemState { pc, merkle_root })
 }
 
+//noinspection RsUnresolvedPath RustRover False positive OUT_LAYOUT
 pub(crate) fn decode_receipt_claim_from_seal<SC: CircuitCoreDef>(
     seal: &[u32],
 ) -> Result<ReceiptClaim, VerificationError> {
@@ -209,8 +212,7 @@ impl SegmentReceiptVerifierParameters {
                 POSEIDON2_CONTROL_IDS
                     .into_iter()
                     .chain(SHA256_CONTROL_IDS)
-                    .chain(BLAKE2B_CONTROL_IDS)
-                    .map(Into::into),
+                    .chain(BLAKE2B_CONTROL_IDS),
             ),
             proof_system_info: PROOF_SYSTEM_INFO,
             circuit_info: crate::circuit::v1_0::CircuitImpl::CIRCUIT_INFO,

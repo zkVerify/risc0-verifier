@@ -21,6 +21,10 @@ jobs:
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4
+      - name: Install latest stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
       - name: Install cargo-make
         uses: actions-rs/cargo@v1
         with:

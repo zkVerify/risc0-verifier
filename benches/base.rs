@@ -56,6 +56,112 @@ pub mod sha {
             divan::black_box(case.journal.digest()),
         )
     }
+
+    mod single_full_segment {
+        use super::*;
+
+        fn path(po2: u32) -> String {
+            format!("resources/cases/single_full_segment/sha_{po2}.json")
+        }
+
+        #[divan::bench]
+        fn verify_1_2_0_16() {
+            let ctx = VerifierContext::v1_2();
+            let case: Case = read_json(path(16)).unwrap();
+            let proof = read_bin(case.receipt_path).unwrap();
+
+            compute(
+                divan::black_box(&ctx),
+                divan::black_box(&proof),
+                divan::black_box(case.vk),
+                divan::black_box(case.journal.digest()),
+            )
+        }
+
+        #[divan::bench]
+        fn verify_1_2_0_17() {
+            let ctx = VerifierContext::v1_2();
+            let case: Case = read_json(path(17)).unwrap();
+            let proof = read_bin(case.receipt_path).unwrap();
+
+            compute(
+                divan::black_box(&ctx),
+                divan::black_box(&proof),
+                divan::black_box(case.vk),
+                divan::black_box(case.journal.digest()),
+            )
+        }
+
+        #[divan::bench]
+        fn verify_1_2_0_18() {
+            let ctx = VerifierContext::v1_2();
+            let case: Case = read_json(path(18)).unwrap();
+            let proof = read_bin(case.receipt_path).unwrap();
+
+            compute(
+                divan::black_box(&ctx),
+                divan::black_box(&proof),
+                divan::black_box(case.vk),
+                divan::black_box(case.journal.digest()),
+            )
+        }
+
+        #[divan::bench]
+        fn verify_1_2_0_19() {
+            let ctx = VerifierContext::v1_2();
+            let case: Case = read_json(path(19)).unwrap();
+            let proof = read_bin(case.receipt_path).unwrap();
+
+            compute(
+                divan::black_box(&ctx),
+                divan::black_box(&proof),
+                divan::black_box(case.vk),
+                divan::black_box(case.journal.digest()),
+            )
+        }
+
+        #[divan::bench]
+        fn verify_1_2_0_20() {
+            let ctx = VerifierContext::v1_2();
+            let case: Case = read_json(path(20)).unwrap();
+            let proof = read_bin(case.receipt_path).unwrap();
+
+            compute(
+                divan::black_box(&ctx),
+                divan::black_box(&proof),
+                divan::black_box(case.vk),
+                divan::black_box(case.journal.digest()),
+            )
+        }
+
+        #[divan::bench]
+        fn verify_1_2_0_21() {
+            let ctx = VerifierContext::v1_2();
+            let case: Case = read_json(path(21)).unwrap();
+            let proof = read_bin(case.receipt_path).unwrap();
+
+            compute(
+                divan::black_box(&ctx),
+                divan::black_box(&proof),
+                divan::black_box(case.vk),
+                divan::black_box(case.journal.digest()),
+            )
+        }
+    }
+}
+
+#[divan::bench]
+fn case_limit() {
+    let ctx = VerifierContext::v1_2();
+    let case: Case = read_json("resources/cases/poseidon2_22_segment_20.json").unwrap();
+    let proof = read_bin(case.receipt_path).unwrap();
+
+    compute(
+        divan::black_box(&ctx),
+        divan::black_box(&proof),
+        divan::black_box(case.vk),
+        divan::black_box(case.journal.digest()),
+    )
 }
 
 pub mod poseidon2 {
@@ -89,6 +195,98 @@ pub mod poseidon2 {
             divan::black_box(case.vk),
             divan::black_box(case.journal.digest()),
         )
+    }
+
+    mod single_full_segment {
+        use super::*;
+
+        fn path(po2: u32) -> String {
+            format!("resources/cases/single_full_segment/poseidon2_{po2}.json")
+        }
+
+        #[divan::bench]
+        fn verify_1_2_0_16() {
+            let ctx = VerifierContext::v1_2();
+            let case: Case = read_json(path(16)).unwrap();
+            let proof = read_bin(case.receipt_path).unwrap();
+
+            compute(
+                divan::black_box(&ctx),
+                divan::black_box(&proof),
+                divan::black_box(case.vk),
+                divan::black_box(case.journal.digest()),
+            )
+        }
+
+        #[divan::bench]
+        fn verify_1_2_0_17() {
+            let ctx = VerifierContext::v1_2();
+            let case: Case = read_json(path(17)).unwrap();
+            let proof = read_bin(case.receipt_path).unwrap();
+
+            compute(
+                divan::black_box(&ctx),
+                divan::black_box(&proof),
+                divan::black_box(case.vk),
+                divan::black_box(case.journal.digest()),
+            )
+        }
+
+        #[divan::bench]
+        fn verify_1_2_0_18() {
+            let ctx = VerifierContext::v1_2();
+            let case: Case = read_json(path(18)).unwrap();
+            let proof = read_bin(case.receipt_path).unwrap();
+
+            compute(
+                divan::black_box(&ctx),
+                divan::black_box(&proof),
+                divan::black_box(case.vk),
+                divan::black_box(case.journal.digest()),
+            )
+        }
+
+        #[divan::bench]
+        fn verify_1_2_0_19() {
+            let ctx = VerifierContext::v1_2();
+            let case: Case = read_json(path(19)).unwrap();
+            let proof = read_bin(case.receipt_path).unwrap();
+
+            compute(
+                divan::black_box(&ctx),
+                divan::black_box(&proof),
+                divan::black_box(case.vk),
+                divan::black_box(case.journal.digest()),
+            )
+        }
+
+        #[divan::bench]
+        fn verify_1_2_0_20() {
+            let ctx = VerifierContext::v1_2();
+            let case: Case = read_json(path(20)).unwrap();
+            let proof = read_bin(case.receipt_path).unwrap();
+
+            compute(
+                divan::black_box(&ctx),
+                divan::black_box(&proof),
+                divan::black_box(case.vk),
+                divan::black_box(case.journal.digest()),
+            )
+        }
+
+        #[divan::bench]
+        fn verify_1_2_0_21() {
+            let ctx = VerifierContext::v1_2();
+            let case: Case = read_json(path(21)).unwrap();
+            let proof = read_bin(case.receipt_path).unwrap();
+
+            compute(
+                divan::black_box(&ctx),
+                divan::black_box(&proof),
+                divan::black_box(case.vk),
+                divan::black_box(case.journal.digest()),
+            )
+        }
     }
 }
 

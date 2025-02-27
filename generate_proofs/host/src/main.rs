@@ -15,53 +15,184 @@
 // limitations under the License.
 //
 
+use clap::{Parser, ValueEnum};
+use risc0_zkp::MAX_CYCLES_PO2;
+use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts, Receipt, DEFAULT_MAX_PO2};
+use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
+use std::time::Instant;
+use tracing::{debug, info};
 
-use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts, Receipt};
+#[derive(Copy, Clone, ValueEnum, Debug)]
+enum Prover {
+    /// Sha hash : faster prover/verifier continuation segments
+    Sha,
+    /// Poseidon2 hash : slower prover/verifier continuation segments but can be wrapped in a succinct proof
+    Poseidon2,
+    /// Generate the poseidon2 segment and the succinct proof. Tho output segment size is fixed
+    Succinct,
+}
+
+impl Display for Prover {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl Prover {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Prover::Sha => "sha",
+            Prover::Poseidon2 => "poseidon2",
+            Prover::Succinct => "succinct",
+        }
+    }
+
+    fn opts(&self) -> ProverOpts {
+        match self {
+            Prover::Sha => ProverOpts::fast(),
+            Prover::Poseidon2 => ProverOpts::default(),
+            Prover::Succinct => ProverOpts::succinct(),
+        }
+    }
+}
+
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Cli {
+    /// Input folder for method elf and vk
+    #[arg(short, long, value_name = "FOLDER", default_value = "method")]
+    method: PathBuf,
+
+    /// Output folder artifacts
+    #[arg(short, long, value_name = "FOLDER", default_value = "output")]
+    output: PathBuf,
+
+    /// Provers to run
+    #[arg(
+        short,
+        long,
+        value_name = "PROVERS",
+        default_values_t = vec![Prover::Sha, Prover::Poseidon2, Prover::Succinct]
+    )]
+    provers: Vec<Prover>,
+
+    /// Powers of 2. Generate an execution that fit in a proof of 2^po2 cycle. If the segment size
+    /// is not fix will use the default value of 2^20 as segment maximum size.
+    #[arg(short='2', long, value_name = "PO2", default_values_t = vec![16, 22])]
+    po2: Vec<u32>,
+
+    /// If is true is trying to create a single proof with a single segment
+    #[arg(short, long, default_value = "false")]
+    no_continuation: bool,
+
+    /// Use a defined segment size: should be >= 16 and less than 22. Raise error if no_continuation
+    /// is enabled.
+    #[arg(short, long)]
+    segment_size: Option<u32>,
+
+    /// Verbose
+    #[arg(short, long)]
+    verbose: bool,
+}
+
+fn max_segment_size() -> u32 {
+    MAX_CYCLES_PO2.min(DEFAULT_MAX_PO2) as u32
+}
+
+impl Cli {
+    fn validate(&self) {
+        for p in self.po2.clone() {
+            if p < 15 {
+                panic!("invalid po2 component: {p}");
+            }
+            if p > 24 {
+                panic!("invalid po2 component: {p}");
+            }
+            if self.no_continuation {
+                if p < 16 {
+                    panic!("invalid po2 component for no continuation: {p}");
+                }
+                if p > max_segment_size() {
+                    panic!("invalid po2 component for no continuation: {p}");
+                }
+            }
+        }
+        if matches!(self.segment_size, Some(s) if s < 16 && s > max_segment_size()) {
+            panic!("invalid segment_size")
+        }
+    }
+}
 
 fn main() {
+    let cli = Cli::parse();
+    cli.validate();
+
+    let log_default_cfg = if cli.verbose {
+        "host=debug"
+    } else {
+        "host=info"
+    };
+
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::filter::EnvFilter::from_default_env())
+        .with_env_filter(
+            tracing_subscriber::filter::EnvFilter::from_default_env()
+                .add_directive(log_default_cfg.parse().unwrap()),
+        )
         .init();
 
-        let powers = vec![16_u32, 22];
-    let provers = [
-        ("poseidon2", ProverOpts::default()),
-        ("sha", ProverOpts::fast()),
-        ("succinct", ProverOpts::succinct()),
-    ];
-    let versions = ["1.2.0", "1.1.3", "1.1.1", "1.0.5", "1.0.1"];
-    let out = "output";
+    let elf_path = cli.method.join("method");
+    let vk_path = cli.method.join("info.txt");
 
-    for version in &versions[..] {
-        let method_elf = read_elf(format!("method-{version}/method"));
-        let method_id = read_method_id(format!("method-{version}/info.txt"));
-        println!("============= VERSION {version} =============");
+    info!(
+        "Read elf method from {} and vk (AKA method id) form {}",
+        elf_path.display(),
+        vk_path.display()
+    );
 
-        let outdir = PathBuf::from(out).join(version);
+    let method_elf = read_elf(elf_path);
+    let method_id = read_method_id(vk_path);
 
-        std::fs::create_dir_all(&outdir).unwrap();
+    let output_path = cli.output;
 
-        let json_id = std::fs::File::create(outdir.join("id.json")).unwrap();
-        serde_json::to_writer_pretty(json_id, &method_id).unwrap();
+    info!("Write artifacts in {}", output_path.display());
 
-        for power in &powers[..] {
-            for (prover_name, prover_opts) in &provers {
-                println!("============= {prover_name} - {power} =============");
-                let receipt = compute(&method_elf, prover_opts, *power);
-                let output: u32 = receipt.journal.decode().unwrap();
-                println!("============= output = {output} =============");
-                if prover_opts.receipt_kind == risc0_zkvm::ReceiptKind::Composite {
-                    let len = receipt.inner.composite().unwrap().segments.len();
-                    println!("============= len = {len} =============");
-                } else {
-                    println!("============= succinct =============");
-                }
+    std::fs::create_dir_all(&output_path).unwrap();
 
-                receipt.verify(method_id).unwrap();
-                save(&outdir, prover_name, *power, receipt);
-                println!("============= DONE =============");
+    let id_json_path = output_path.join("id.json");
+    debug!("Vk json: {}", id_json_path.display());
+    let json_id = std::fs::File::create(id_json_path).unwrap();
+    serde_json::to_writer_pretty(json_id, &method_id).unwrap();
+
+    debug!("Powers: {:?}", cli.po2);
+    debug!("Provers: {:?}", cli.provers);
+    debug!("Enabled continuation {}", !cli.no_continuation);
+    debug!("Segment size {:?}", cli.segment_size);
+    for power in &cli.po2 {
+        for prover in &cli.provers {
+            let prover_name = prover.as_str();
+            info!("============= {prover_name} - {power} =============");
+            let start = Instant::now();
+            let segment_size = if cli.no_continuation {
+                Some(*power)
+            } else {
+                cli.segment_size
+            };
+            let prover_opts = prover.opts();
+            let receipt = compute(&method_elf, &prover_opts, *power, segment_size);
+            let elapsed = start.elapsed().as_millis();
+            let output: u32 = receipt.journal.decode().unwrap();
+            info!("============= output = {output}  in {elapsed}ms =============");
+            if prover_opts.receipt_kind == risc0_zkvm::ReceiptKind::Composite {
+                let len = receipt.inner.composite().unwrap().segments.len();
+                info!("============= len = {len} =============");
+            } else {
+                debug!("============= succinct =============");
             }
+
+            receipt.verify(method_id).unwrap();
+            save(&output_path, prover_name, *power, receipt);
+            info!("============= DONE =============");
         }
     }
 }
@@ -107,46 +238,65 @@ impl ToMethodIdU32Format for Vec<u8> {
 }
 
 fn save(outdir: impl AsRef<Path>, prover_name: &str, power: u32, receipt: Receipt) {
-    let journal = std::fs::File::create(
-        outdir
-            .as_ref()
-            .join(format!("journal_{prover_name}_{power}.json")),
-    )
-    .unwrap();
+    let journal_path = outdir
+        .as_ref()
+        .join(format!("journal_{prover_name}_{power}.json"));
+    debug!("Output journal file: {}", journal_path.display());
+    let journal = std::fs::File::create(journal_path).unwrap();
     serde_json::to_writer_pretty(journal, &receipt.journal).unwrap();
-    let bin_receipt = std::fs::File::create(
-        outdir
-            .as_ref()
-            .join(format!("receipt_{prover_name}_{power}.bin")),
-    )
-    .unwrap();
+    let bin_receipt_path = outdir
+        .as_ref()
+        .join(format!("receipt_{prover_name}_{power}.bin"));
+    debug!("Output binary receipt: {}", bin_receipt_path.display());
+    let bin_receipt = std::fs::File::create(bin_receipt_path).unwrap();
     ciborium::into_writer(&receipt, bin_receipt).unwrap();
 
-    let bin_inner_receipt = std::fs::File::create(
-        outdir
-            .as_ref()
-            .join(format!("inner_receipt_{prover_name}_{power}.bin")),
-    )
-    .unwrap();
+    let bin_inner_receipt_path = outdir
+        .as_ref()
+        .join(format!("inner_receipt_{prover_name}_{power}.bin"));
+    debug!(
+        "Output binary inner receipt: {}",
+        bin_inner_receipt_path.display()
+    );
+    let bin_inner_receipt = std::fs::File::create(bin_inner_receipt_path).unwrap();
     ciborium::into_writer(&receipt.inner, bin_inner_receipt).unwrap();
 
-    let json_inner_receipt = std::fs::File::create(
-        outdir
-            .as_ref()
-            .join(format!("inner_receipt_{prover_name}_{power}.json")),
-    )
-    .unwrap();
+    let json_inner_receipt_path = outdir
+        .as_ref()
+        .join(format!("inner_receipt_{prover_name}_{power}.json"));
+    debug!(
+        "Output json inner receipt: {}",
+        json_inner_receipt_path.display()
+    );
+    let json_inner_receipt = std::fs::File::create(json_inner_receipt_path).unwrap();
     serde_json::to_writer_pretty(json_inner_receipt, &receipt.inner).unwrap();
 }
 
-fn compute(method_elf: &[u8], opts: &ProverOpts, power: u32) -> Receipt {
+fn compute(method_elf: &[u8], opts: &ProverOpts, power: u32, segment_size: Option<u32>) -> Receipt {
     // For example:
-    let cycles: u64 = u64::pow(2, power - 1) + 1;
-    let env = ExecutorEnv::builder()
-        .write(&cycles)
-        .unwrap()
-        .build()
-        .unwrap();
+    let cycles: u64 = match power {
+        16 => 1024 * 8,
+        17 => 1024 * 32,
+        18 => 1024 * 128,
+        19 => 1024 * 256,
+        20 => 1024 * 256 * 3,
+        21 => 1024 * 256 * 7,
+        22 => 1024 * 256 * 15,
+        23 => 1024 * 256 * 31,
+        24 => 1024 * 256 * 63,
+        _ => panic!("Unsupported"),
+    };
+
+    debug!("Cycles : {cycles}");
+
+    let mut builder = ExecutorEnv::builder();
+
+    builder.write(&cycles).unwrap();
+    if let Some(size) = segment_size {
+        debug!("Set segment size to 2^{size}");
+        builder.segment_limit_po2(size);
+    }
+    let env = builder.build().unwrap();
 
     // Obtain the default prover.
     let prover = default_prover();

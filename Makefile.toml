@@ -25,7 +25,11 @@ args = ["build"]
 command = "cargo"
 args = ["test"]
 
-[tasks.build_convert]
+[tasks.build-host-generate-proofs]
+command = "cargo"
+args = ["build", "--release", "--manifest-path", "generate_proofs/host/Cargo.toml"]
+
+[tasks.build-convert]
 command = "cargo"
 args = ["build", "--bin", "convert_old", "--release", "--features", "convert"]
 
@@ -89,11 +93,16 @@ toolchain = "nightly"
 command = "cargo"
 args = ["udeps", "--all-targets"]
 
+[tasks.machete]
+command = "cargo"
+args = ["machete"]
+
 [tasks.ci-common]
-dependencies = ["build", "build-bare-metal", "test", "build_convert", "clippy", "audit", "udeps"]
+dependencies = ["build", "build-bare-metal", "test", "build-convert", "build-host-generate-proofs", "clippy", "audit",
+    "udeps"]
 
 [tasks.ci]
-dependencies = ["format", "header-add", "ci-common"]
+dependencies = ["format", "header-add", "ci-common", "machete"]
 
 [tasks.ci-remote]
 dependencies = ["format-check", "header-check", "ci-common"]
