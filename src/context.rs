@@ -38,13 +38,13 @@ use risc0_zkp::{
 /// all the info necessary to verify the proofs there are some
 /// preconfigured context configurations to fit the risc0 vm versions.
 ///
-/// The risc0 vm version `1.x` are not interchangeable that means if had
-/// generated a proof with the `1.1.x` risc0 version you can verify it only
+/// The risc0 vm versions `1.x` are not interchangeable that means if had
+/// generated a proof with the `1.1.x` risc0 version, you can verify it only
 /// with the `1.1.y` circuit version and so you should use [`VerifierContext::v1_1()`],
-/// any other context, even if has a greater version, will fail to verify the proof.
+/// any other context, even if it has a greater version, will fail to verify the proof.
 ///
-/// So, `VerifierContext` define a new constructor for each risc0 minor version
-/// in order to have the right context for any risc0 incompatible vm version.
+/// So, `VerifierContext` defines a new constructor for each risc0 minor version
+/// to have the right context for any risc0 incompatible vm version.
 ///
 #[non_exhaustive]
 pub struct VerifierContext<SC: CircuitCoreDef, RC: CircuitCoreDef> {
@@ -96,15 +96,15 @@ impl VerifierContext<circuit::v1_2::CircuitImpl, circuit::v1_2::recursive::Circu
 /// The segment info.
 pub struct SegmentInfo {
     /// Hash function name
-    pub hashfn: String,
-    /// The power of 2 proof size
+    pub hash: String,
+    /// The power-of-2 proof size
     pub po2: u32,
 }
 
 impl SegmentInfo {
-    /// Create a new segment info
-    pub fn new(hashfn: String, po2: u32) -> Self {
-        Self { hashfn, po2 }
+    /// Create a new segment-info
+    pub fn new(hash: String, po2: u32) -> Self {
+        Self { hash, po2 }
     }
 }
 
@@ -128,9 +128,9 @@ pub trait Verifier {
             .segments
             .iter()
             .map(|s| {
-                self.extract_segment_info(s.seal.as_slice(), s.hashfn.as_str())
+                self.extract_segment_po2(s.seal.as_slice(), s.hashfn.as_str())
                     .map(|po2| SegmentInfo {
-                        hashfn: s.hashfn.clone(),
+                        hash: s.hashfn.clone(),
                         po2,
                     })
             })
@@ -146,7 +146,7 @@ pub trait Verifier {
         poseidon2: alloc::boxed::Box<dyn Poseidon2Mix + Send + Sync + 'static>,
     );
 
-    fn extract_segment_info(&self, seal: &[u32], hashfn: &str) -> Result<u32, VerificationError>;
+    fn extract_segment_po2(&self, seal: &[u32], hash: &str) -> Result<u32, VerificationError>;
 }
 
 impl<SC: CircuitCoreDef, RC: CircuitCoreDef> Verifier for VerifierContext<SC, RC> {
@@ -173,10 +173,10 @@ impl<SC: CircuitCoreDef, RC: CircuitCoreDef> Verifier for VerifierContext<SC, RC
         Self::set_poseidon2_mix_impl(self, poseidon2)
     }
 
-    fn extract_segment_info(&self, seal: &[u32], hashfn: &str) -> Result<u32, VerificationError> {
+    fn extract_segment_po2(&self, seal: &[u32], hash: &str) -> Result<u32, VerificationError> {
         let suite = self
             .suites
-            .get(hashfn)
+            .get(hash)
             .ok_or(VerificationError::InvalidHashSuite)?;
         // Make IOP
         let mut iop = ReadIOP::<BabyBear>::new(seal, suite.rng.as_ref());
@@ -218,8 +218,8 @@ impl Verifier for alloc::boxed::Box<dyn Verifier> {
         self.as_mut().set_poseidon2_mix_impl(poseidon2)
     }
 
-    fn extract_segment_info(&self, seal: &[u32], hashfn: &str) -> Result<u32, VerificationError> {
-        self.as_ref().extract_segment_info(seal, hashfn)
+    fn extract_segment_po2(&self, seal: &[u32], hash: &str) -> Result<u32, VerificationError> {
+        self.as_ref().extract_segment_po2(seal, hash)
     }
 }
 
