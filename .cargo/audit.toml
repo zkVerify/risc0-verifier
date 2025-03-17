@@ -2,6 +2,8 @@
 ignore = [
     "RUSTSEC-2024-0388", # Just linked in test from risc0-zkvm for groth16
     "RUSTSEC-2024-0370", # Just linked in test from risc0-zkvm for bonsai-sdk
+    "RUSTSEC-2024-0436", # paste (transitive) is unmaintained because completed
+                         # It's fine to ignore it.
 ]
 informational_warnings = ["unmaintained", "unsound"]
 
