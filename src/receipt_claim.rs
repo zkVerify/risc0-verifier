@@ -29,11 +29,11 @@ use anyhow::{anyhow, ensure};
 use core::{fmt, ops::Deref};
 
 // use anyhow::{anyhow, ensure};
-use risc0_binfmt::{
+use risc0_binfmt_v1::{
     read_sha_halfs, tagged_list, tagged_list_cons, tagged_struct, write_sha_halfs,
     DecodeError as SysDecodeError, Digestible, ExitCode, InvalidExitCodeError, SystemState,
 };
-use risc0_zkp::core::{
+use risc0_zkp_v1::core::{
     digest::Digest,
     hash::{sha, sha::Sha256},
 };

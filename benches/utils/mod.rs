@@ -31,13 +31,13 @@ pub struct Case {
     pub vk: Vk,
 }
 
-pub fn compute<SC: CircuitCoreDef + 'static, RC: CircuitCoreDef + 'static>(
-    ctx: &VerifierContext<SC, RC>,
+pub fn compute(
+    ctx: &(impl risc0_verifier::VC + risc0_verifier::Verifier),
     proof: &Proof,
     vk: Vk,
     pubs: Digest,
 ) {
-    proof.verify(&ctx, vk, pubs).unwrap()
+    proof.verify(ctx, vk, pubs).unwrap()
 }
 
 pub fn read_json<T: DeserializeOwned>(path: impl AsRef<Path>) -> anyhow::Result<T> {

@@ -18,7 +18,7 @@
 
 use alloc::vec::Vec;
 use composite::CompositeReceipt;
-use risc0_zkp::{core::digest::Digest, verify::VerificationError};
+use risc0_zkp_v1::{core::digest::Digest, verify::VerificationError};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -66,12 +66,18 @@ impl Proof {
     ///   Refer to [VerifierContext] for more details.
     /// - `pubs`: The Risc0 Journal or a SHA digest of it.
     /// - `image_id`: The expected Risc0 image ID or its SHA digest.
-    pub fn verify<SC: CircuitCoreDef, RC: CircuitCoreDef>(
+    pub fn verify(
         &self,
-        ctx: &VerifierContext<SC, RC>,
+        ctx: &impl crate::context::VC,
         image_id: impl Into<Digest>,
         pubs: impl Into<Digest>,
     ) -> Result<(), VerificationError> {
+        log::debug!("Receipt::is_valid_receipt");
+        if !ctx.is_valid_receipt(self) {
+            log::debug!("Invalid receipt");
+            return Err(VerificationError::ReceiptFormatError);
+        }
+
         log::debug!("Receipt::verify_with_context");
         self.inner.verify_integrity_with_context(ctx)?;
 
@@ -118,7 +124,7 @@ impl Journal {
     }
 }
 
-impl risc0_binfmt::Digestible for Journal {
+impl risc0_binfmt_v1::Digestible for Journal {
     fn digest<S: Sha256>(&self) -> Digest {
         *S::hash_bytes(&self.bytes)
     }
@@ -144,9 +150,9 @@ pub enum InnerReceipt {
 
 impl InnerReceipt {
     /// Verify the integrity of this receipt, ensuring the claim is attested to by the seal.
-    pub fn verify_integrity_with_context<SC: CircuitCoreDef, RC: CircuitCoreDef>(
+    pub fn verify_integrity_with_context(
         &self,
-        ctx: &VerifierContext<SC, RC>,
+        ctx: &impl crate::context::VC,
     ) -> Result<(), VerificationError> {
         log::debug!("InnerReceipt::verify_integrity_with_context");
         match self {
@@ -204,9 +210,9 @@ pub enum InnerAssumptionReceipt {
 
 impl InnerAssumptionReceipt {
     /// Verify the integrity of this receipt, ensuring the claim is attested to by the seal.
-    pub fn verify_integrity_with_context<SC: CircuitCoreDef, RC: CircuitCoreDef>(
+    pub fn verify_integrity_with_context(
         &self,
-        ctx: &VerifierContext<SC, RC>,
+        ctx: &impl crate::context::VC,
     ) -> Result<(), VerificationError> {
         log::debug!("InnerAssumptionReceipt::verify_integrity_with_context");
         match self {

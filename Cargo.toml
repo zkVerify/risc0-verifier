@@ -10,10 +10,15 @@ keywords = ["crypto", "no-std", "blockchain", "cryptography", "risc0"]
 
 [dependencies]
 serde = { version = "1.0.217", default-features = false, features = ["derive"] }
-risc0-core = { version = "=1.2.0", default-features = false }
-risc0-zkp = { version = "=1.2.0", default-features = false }
-risc0-binfmt = { version = "=1.2.0", default-features = false }
-risc0-circuit-rv32im = { version = "=1.2.0", default-features = false }
+risc0-zkvm = { version = "2.0.0", default-features = false }
+risc0-core-v1 = { package = "risc0-core", version = "1.2.6", default-features = false }
+risc0-core-v2 = { package = "risc0-core", version = "2.0.0", default-features = false }
+risc0-zkp-v1 = { package = "risc0-zkp", version = "1.2.6", default-features = false }
+risc0-zkp-v2 = { package = "risc0-zkp", version = "2.0.0", default-features = false }
+risc0-binfmt-v1 = { package = "risc0-binfmt", version = "1.2.6", default-features = false }
+risc0-binfmt-v2 = { package = "risc0-binfmt", version = "2.0.0", default-features = false }
+risc0-circuit-rv32im-v1 = { package = "risc0-circuit-rv32im", version = "1.2.6", default-features = false }
+risc0-circuit-rv32im-v2 = { package = "risc0-circuit-rv32im", version = "2.0.0", default-features = false }
 anyhow = { version = "1.0.95", default-features = false }
 hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
 bytemuck = { version = "1.21.0", default-features = false }

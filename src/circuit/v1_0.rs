@@ -15,9 +15,9 @@
 // limitations under the License.
 //
 
-use risc0_core::field::baby_bear::BabyBear;
+use risc0_core_v1::field::baby_bear::BabyBear;
 
-use risc0_zkp::{
+use risc0_zkp_v1::{
     adapter::{CircuitCoreDef, CircuitInfo, ProtocolInfo},
     taps::TapSet,
 };
@@ -35,7 +35,7 @@ impl CircuitImpl {
     }
 }
 
-impl risc0_zkp::adapter::TapsProvider for CircuitImpl {
+impl risc0_zkp_v1::adapter::TapsProvider for CircuitImpl {
     fn get_taps(&self) -> &'static TapSet<'static> {
         taps::TAPSET
     }
@@ -55,7 +55,7 @@ impl CircuitInfo for CircuitImpl {
 impl CircuitCoreDef<BabyBear> for CircuitImpl {}
 
 pub mod recursive {
-    use risc0_zkp::{
+    use risc0_zkp_v1::{
         adapter::{CircuitCoreDef, CircuitInfo, ProtocolInfo, TapsProvider},
         field::baby_bear::BabyBear,
         taps::TapSet,

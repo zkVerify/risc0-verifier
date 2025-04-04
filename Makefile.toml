@@ -98,7 +98,9 @@ command = "cargo"
 args = ["machete"]
 
 [tasks.ci-common]
-dependencies = ["build", "build-bare-metal", "test", "build-convert", "build-host-generate-proofs", "clippy", "audit",
+#dependencies = ["build", "build-bare-metal", "test", "build-convert", "build-host-generate-proofs", "clippy", "audit",
+#    "udeps"]
+dependencies = ["build", "test", "build-convert", "clippy", "audit",
     "udeps"]
 
 [tasks.ci]

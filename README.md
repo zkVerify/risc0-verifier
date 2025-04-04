@@ -60,7 +60,7 @@ be deserialized into `risc0-verifier::Journal` as well. For the
 ```rust
     use risc0_verifier::Vk;
     let vk : Vk = hex_literal::hex!("9db9988d9fbcacadf2bd29fc7c60b98bc4234342fe536eb983169eb6cc248009").into();
-    let r0 : risc0_zkp::core::digest::Digest = [
+    let r0 : risc0_zkp_v1::core::digest::Digest = [
         2375596445,
         2913778847,
         4230594034,

@@ -88,16 +88,16 @@ use alloc::boxed::Box;
 use crate::{CircuitCoreDef, VerifierContext};
 
 use super::Digest;
-use risc0_core::field::baby_bear::BabyBear;
+use risc0_core_v1::field::baby_bear::BabyBear;
 
 // Re-export the poseidon2 risc0 implementation and field type.
 
 /// Babybear element is a `transparent` wrapper of `u32`: so it's safe to transmute it in
 /// a `u32`.
-pub use risc0_core::field::baby_bear::BabyBearElem;
-pub use risc0_zkp::core::hash::poseidon2::{poseidon2_mix, CELLS as POSEIDON2_CELLS};
+pub use risc0_core_v1::field::baby_bear::BabyBearElem;
+pub use risc0_zkp_v1::core::hash::poseidon2::{poseidon2_mix, CELLS as POSEIDON2_CELLS};
 
-use risc0_zkp::{
+use risc0_zkp_v1::{
     core::{
         digest::DIGEST_WORDS,
         hash::{
@@ -137,10 +137,10 @@ impl<T: Poseidon2Mix + Send + Sync + 'static> Boxed for T {
     }
 }
 
-struct Poseidon2Impl<T>(T);
+pub(crate) struct Poseidon2Impl<T>(T);
 
 impl<T> Poseidon2Impl<T> {
-    fn new(inner: T) -> Self {
+    pub fn new(inner: T) -> Self {
         Self(inner)
     }
 }
@@ -201,15 +201,50 @@ impl<T: Poseidon2Mix + Send + Sync> HashFn<BabyBear> for Poseidon2Impl<T> {
 
     fn hash_elem_slice(
         &self,
-        slice: &[<BabyBear as risc0_zkp::field::Field>::Elem],
+        slice: &[<BabyBear as risc0_zkp_v1::field::Field>::Elem],
     ) -> Box<Digest> {
         to_digest(self.unpadded_hash(slice.iter()))
     }
 
     fn hash_ext_elem_slice(
         &self,
-        slice: &[<BabyBear as risc0_zkp::field::Field>::ExtElem],
+        slice: &[<BabyBear as risc0_zkp_v1::field::Field>::ExtElem],
     ) -> Box<Digest> {
         to_digest(self.unpadded_hash(slice.iter().flat_map(|ee| ee.subelems().iter())))
+    }
+}
+
+mod v2 {
+    use alloc::boxed::Box;
+    use risc0_core_v2::field::{baby_bear::{BabyBear, BabyBearElem}, Field};
+    use risc0_zkp_v2::core::digest::{Digest, DIGEST_WORDS};
+    use crate::context::IntoOther;
+    use crate::poseidon2_injection::{to_digest, Poseidon2Impl, Poseidon2Mix};
+
+    impl<T: Poseidon2Mix + Send + Sync> risc0_zkp_v2::core::hash::HashFn<risc0_core_v2::field::baby_bear::BabyBear> for Poseidon2Impl<T> {
+        fn hash_pair(&self, a: &Digest, b: &Digest) -> Box<Digest> {
+            let a = bytemuck::checked::cast_ref(a);
+            let b = bytemuck::checked::cast_ref(b);
+            let d = *<Self as risc0_zkp_v1::core::hash::HashFn<risc0_core_v1::field::baby_bear::BabyBear>>::hash_pair(self, a, b);
+            d.into_other().into()
+        }
+
+        fn hash_elem_slice(
+            &self,
+            slice: &[<BabyBear as Field>::Elem],
+        ) -> Box<Digest> {
+            let slice = bytemuck::checked::cast_slice(slice);
+            (*<Self as risc0_zkp_v1::core::hash::HashFn<risc0_core_v1::field::baby_bear::BabyBear>>
+                ::hash_elem_slice(self, slice)).into_other().into()
+        }
+
+        fn hash_ext_elem_slice(
+            &self,
+            slice: &[<BabyBear as Field>::ExtElem],
+        ) -> Box<Digest> {
+            let slice = bytemuck::checked::cast_slice(slice);
+            (*<Self as risc0_zkp_v1::core::hash::HashFn<risc0_core_v1::field::baby_bear::BabyBear>>
+                ::hash_ext_elem_slice(self, slice)).into_other().into()
+        }
     }
 }
