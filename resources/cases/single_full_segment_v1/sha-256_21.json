@@ -1,10 +1,10 @@
 {
-  "receipt_path": "./resources/receipts/single_full_segment/sha_20.bin",
+  "receipt_path": "./resources/receipts/single_full_segment_v1/sha_21.bin",
   "journal": {
     "bytes": [
-      4,
       0,
-      12,
+      0,
+      28,
       0,
       0,
       0,

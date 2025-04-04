@@ -16,8 +16,8 @@
 // limitations under the License.
 //
 
-use risc0_zkp::core::digest::Digest;
-use risc0_zkp::digest;
+use risc0_zkp_v1::core::digest::Digest;
+use risc0_zkp_v1::digest;
 
 /// Control IDs allowed in the default set of recursion programs. Includes control IDs for the base
 /// set of recursion programs, and each power-of-two of the rv32im circuit, using Poseidon2.

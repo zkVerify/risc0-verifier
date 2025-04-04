@@ -13,17 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use risc0_verifier::Digestible as _;
-use risc0_verifier::Verifier;
-use risc0_verifier::{verify, SegmentInfo};
 use risc0_verifier::{
-    CircuitCoreDef, CompositeReceipt, Journal, MaybePruned, Proof, ReceiptClaim, SuccinctReceipt,
-    VerifierContext, Vk,
+    verify, CompositeReceipt, Digestible as _, Journal, Proof, SegmentInfo, SuccinctReceipt,
+    Verifier, Vk, V1, V2,
 };
-use risc0_zkp::core::hash::HashFn;
-use risc0_zkp::field::baby_bear::BabyBear;
-use risc0_zkp::field::Field;
-use risc0_zkp::verify::VerificationError;
+use risc0_zkp_v1::verify::VerificationError;
 use rstest::rstest;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
@@ -31,6 +25,7 @@ use std::{
     io::BufReader,
     path::{Path, PathBuf},
 };
+
 mod legacy {
 
     use super::*;
@@ -43,7 +38,7 @@ mod legacy {
         let inner_receipt = deserialize_proof(&proof).unwrap();
         let journal = deserialize_pubs(&pubs).unwrap();
 
-        let ctx = VerifierContext::v1_0();
+        let ctx = V1::v1_0();
         let proof = Proof::new(inner_receipt);
         proof.verify(&ctx, vk, journal.digest()).unwrap()
     }
@@ -85,36 +80,41 @@ mod legacy {
     }
 }
 
-#[test]
-fn verify_valid_proof() {
-    let case: Case = read_all("./resources/cases/prover_1.0.3/vm_1.1.3/sha_16.json").unwrap();
+#[rstest]
+#[case::v1(V1::v1_0(), "./resources/cases/prover_1.0.3/vm_1.1.3/sha_16.json")]
+#[case::v2(
+    V2::v2_0(),
+    "./resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_16.json"
+)]
+fn verify_valid_proof(#[case] verifier: impl Verifier, #[case] path: &str) {
+    let case: Case = read_all(path).unwrap();
 
     let proof = case.get_proof().unwrap();
 
-    verify(&VerifierContext::v1_0(), case.vk, proof, case.journal).unwrap()
+    verify(&verifier, case.vk, proof, case.journal).unwrap()
 }
 
-#[test]
-fn verify_valid_proof_dynamic() {
-    let case: Case = read_all("./resources/cases/prover_1.1.3/vm_1.1.3/sha_16.json").unwrap();
+#[rstest]
+#[case::v1(V1::v1_0().boxed(), "./resources/cases/prover_1.0.3/vm_1.1.3/sha_16.json")]
+#[case::v2(V2::v2_0().boxed(), "./resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_16.json")]
+fn verify_valid_proof_dynamic(#[case] verifier: Box<dyn Verifier>, #[case] path: &str) {
+    let case: Case = read_all(path).unwrap();
 
     let proof = case.get_proof().unwrap();
 
-    VerifierContext::v1_1()
-        .boxed()
+    verifier
         .verify(case.vk.into(), proof, case.journal)
         .unwrap()
 }
 
 #[rstest]
-fn read_po2_segment(
-    #[values(VerifierContext::v1_0().boxed(), VerifierContext::v1_1().boxed(), VerifierContext::v1_2().boxed())]
-    verifier: Box<dyn Verifier>,
+fn read_po2_segment_v1(
+    #[values(V1::v1_0(), V1::v1_1(), V1::v1_2())] verifier: impl Verifier,
     #[values(16, 17, 18, 19, 20, 21)] expected_po2: u32,
     #[values("sha-256", "poseidon2")] hash: &str,
 ) {
     let case: Case = read_all(format!(
-        "./resources/cases/single_full_segment/{hash}_{expected_po2}.json"
+        "./resources/cases/single_full_segment_v1/{hash}_{expected_po2}.json"
     ))
     .unwrap();
     let proof = case.get_proof().unwrap();
@@ -127,57 +127,81 @@ fn read_po2_segment(
 }
 
 #[rstest]
-fn read_po2_segments(
-    #[values(VerifierContext::v1_0().boxed(), VerifierContext::v1_1().boxed(), VerifierContext::v1_2().boxed())]
-    verifier: Box<dyn Verifier>,
+fn read_po2_segment_v2(
+    #[values(V2::v2_0())] verifier: impl Verifier,
+    #[values(16, 17, 18, 19, 20, 21, 22)] expected_po2: u32,
+    #[values("poseidon2")] hash: &str,
 ) {
-    let case: Case = read_all("./resources/cases/prover_1.2.0/vm_1.2.0/sha_22.json").unwrap();
+    let case: Case = read_all(format!(
+        "./resources/cases/single_full_segment_v2/{hash}_{expected_po2}.json"
+    ))
+    .unwrap();
     let proof = case.get_proof().unwrap();
 
     let po2s = verifier
         .extract_composite_segments_info(proof.inner.composite().unwrap())
         .unwrap();
 
-    assert_eq!(
-        vec![
-            SegmentInfo::new("sha-256".to_owned(), 20),
-            SegmentInfo::new("sha-256".to_owned(), 20),
-            SegmentInfo::new("sha-256".to_owned(), 17)
-        ],
-        po2s
-    )
+    assert_eq!(vec![SegmentInfo::new(hash.to_owned(), expected_po2)], po2s)
 }
 
-#[test]
-fn read_po2_segments_case_limit_segments() {
-    let case: Case = read_all("./resources/cases/poseidon2_22_segment_20.json").unwrap();
+#[rstest]
+#[case(V1::v1_0(), "./resources/cases/prover_1.0.3/vm_1.0.5/sha_22.json", ("sha-256", [20,20,17].as_slice()))]
+#[case(V1::v1_1(), "./resources/cases/prover_1.1.3/vm_1.1.1/sha_22.json", ("sha-256", [20,20,17].as_slice()))]
+#[case(V1::v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/sha_22.json", ("sha-256", [20,20,17].as_slice()))]
+#[case(V2::v2_0(), "./resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_16.json", ("poseidon2", [16].as_slice()))]
+#[case(V2::v2_0(), "./resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_22.json", ("poseidon2", [20,20,20,20].as_slice()))]
+fn read_po2_segments(
+    #[case] verifier: impl Verifier,
+    #[case] path: &str,
+    #[case] expected: (&str, &[u32]),
+) {
+    let case: Case = read_all(path).unwrap();
     let proof = case.get_proof().unwrap();
 
-    let po2s = VerifierContext::v1_2()
+    let po2s = verifier
         .extract_composite_segments_info(proof.inner.composite().unwrap())
         .unwrap();
 
-    let s_info = SegmentInfo::new("poseidon2".to_owned(), 20);
-    assert_eq!(
-        vec![
-            s_info.clone(),
-            s_info.clone(),
-            s_info.clone(),
-            s_info.clone()
-        ],
-        po2s
-    )
+    let expected = expected
+        .1
+        .into_iter()
+        .map(|&po2| SegmentInfo::new(expected.0.to_owned(), po2))
+        .collect::<Vec<_>>();
+
+    assert_eq!(expected, po2s)
+}
+
+#[rstest]
+#[case(V1::v1_2(), "./resources/cases/poseidon2_22_segment_20.json")]
+#[case(
+    V2::v2_0(),
+    "./resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_22.json"
+)]
+fn read_po2_segments_case_limit_segments(#[case] verifier: impl Verifier, #[case] path: &str) {
+    let case: Case = read_all(path).unwrap();
+    let proof = case.get_proof().unwrap();
+
+    let po2s = verifier
+        .extract_composite_segments_info(proof.inner.composite().unwrap())
+        .unwrap();
+
+    let expected = (0..4)
+        .into_iter()
+        .map(|_| SegmentInfo::new("poseidon2".to_owned(), 20))
+        .collect::<Vec<_>>();
+    assert_eq!(expected, po2s)
 }
 
 mod v1_0 {
     use super::*;
 
     #[rstest]
-    #[case::should_pass(VerifierContext::v1_0().boxed())]
+    #[case::should_pass(V1::v1_0())]
     #[should_panic(expected = "control_id mismatch")]
-    #[case::should_fails_with_new_verifier(VerifierContext::v1_1().boxed())]
+    #[case::should_fails_with_new_verifier(V1::v1_1())]
     fn verify_valid_proof(
-        #[case] verifier: Box<dyn Verifier>,
+        #[case] verifier: impl Verifier,
         #[files("./resources/cases/prover_1.0.*/**/*.json")] path: PathBuf,
     ) {
         let case: Case = read_all(path).unwrap();
@@ -194,11 +218,11 @@ mod v1_1 {
     use super::*;
 
     #[rstest]
-    #[case::should_pass(VerifierContext::v1_1().boxed())]
+    #[case::should_pass(V1::v1_1())]
     #[should_panic(expected = "control_id mismatch")]
-    #[case::should_fails_with_old_verifier(VerifierContext::v1_0().boxed())]
+    #[case::should_fails_with_old_verifier(V1::v1_0())]
     fn verify_valid_proof(
-        #[case] verifier: Box<dyn Verifier>,
+        #[case] verifier: impl Verifier,
         #[files("./resources/cases/prover_1.1.*/**/*.json")] path: PathBuf,
     ) {
         let case: Case = read_all(path).unwrap();
@@ -215,15 +239,49 @@ mod v1_2 {
     use super::*;
 
     #[rstest]
-    #[case::should_pass(VerifierContext::v1_2().boxed())]
+    #[case::should_pass(V1::v1_2())]
     #[should_panic(expected = "control_id mismatch")]
-    #[case::should_fails_with_old_verifier(VerifierContext::v1_0().boxed())]
+    #[case::should_fails_with_old_verifier(V1::v1_0())]
     fn verify_valid_proof(
-        #[case] verifier: Box<dyn Verifier>,
+        #[case] verifier: impl Verifier,
         #[files("./resources/cases/prover_1.2.*/**/*.json")] path: PathBuf,
     ) {
         let case: Case = read_all(path).unwrap();
 
+        let proof = case.get_proof().unwrap();
+
+        verifier
+            .verify(case.vk.into(), proof, case.journal)
+            .unwrap()
+    }
+}
+
+mod v2_0 {
+    use super::*;
+
+    #[rstest]
+    #[case::should_pass(V2::v2_0())]
+    #[should_panic]
+    #[case::should_fails_with_old_verifier(V1::v1_2().boxed())]
+    fn verify_valid_proof(
+        #[case] verifier: impl Verifier,
+        #[files("./resources/cases/prover_2.0.*/**/*.json")] path: PathBuf,
+    ) {
+        let case: Case = read_all(path).unwrap();
+
+        let proof = case.get_proof().unwrap();
+
+        verifier
+            .verify(case.vk.into(), proof, case.journal)
+            .unwrap()
+    }
+
+    #[test]
+    #[should_panic]
+    fn should_reject_sha2_proofs() {
+        let verifier = V2::v2_0();
+        let case: Case =
+            read_all("./resources/cases/reject/prover_2.0.0/vm_2.0.0/sha_16.json").unwrap();
         let proof = case.get_proof().unwrap();
 
         verifier
@@ -238,79 +296,6 @@ mod use_custom_local_implemented_hash_function {
     use risc0_verifier::poseidon2_injection::{
         poseidon2_mix, BabyBearElem, Poseidon2Mix, POSEIDON2_CELLS,
     };
-    use risc0_verifier::sha::Sha256;
-    use risc0_zkp::core::digest::Digest;
-    use risc0_zkp::core::hash::sha::cpu::Impl;
-
-    struct CorrectSha256;
-
-    impl HashFn<BabyBear> for CorrectSha256 {
-        fn hash_pair(&self, a: &Digest, b: &Digest) -> Box<Digest> {
-            Impl::hash_pair(a, b).into()
-        }
-
-        fn hash_elem_slice(&self, slice: &[<BabyBear as Field>::Elem]) -> Box<Digest> {
-            (*Impl::hash_raw_data_slice(slice)).into()
-        }
-
-        fn hash_ext_elem_slice(&self, slice: &[<BabyBear as Field>::ExtElem]) -> Box<Digest> {
-            (*Impl::hash_raw_data_slice(slice)).into()
-        }
-    }
-
-    struct FakeSha256;
-
-    impl HashFn<BabyBear> for FakeSha256 {
-        fn hash_pair(&self, _a: &Digest, _b: &Digest) -> Box<Digest> {
-            (Digest::ZERO).into()
-        }
-
-        fn hash_elem_slice(&self, _slice: &[<BabyBear as Field>::Elem]) -> Box<Digest> {
-            (Digest::ZERO).into()
-        }
-
-        fn hash_ext_elem_slice(&self, _slice: &[<BabyBear as Field>::ExtElem]) -> Box<Digest> {
-            (Digest::ZERO).into()
-        }
-    }
-
-    #[test]
-    fn should_work() {
-        let mut verifier = VerifierContext::v1_2().boxed();
-        let mut suites = verifier.suites().clone();
-        let mut sha = suites.get("sha-256").cloned().unwrap();
-        sha.hashfn = std::rc::Rc::new(CorrectSha256);
-
-        suites.insert("sha-256".to_owned(), sha).unwrap();
-        verifier.set_suites(suites);
-
-        let case: Case = read_all("./resources/cases/prover_1.2.0/vm_1.2.0/sha_16.json").unwrap();
-
-        let proof = case.get_proof().unwrap();
-
-        verifier
-            .verify(case.vk.into(), proof, case.journal)
-            .unwrap()
-    }
-
-    #[test]
-    fn should_fail() {
-        let mut verifier = VerifierContext::v1_2().boxed();
-        let mut suites = verifier.suites().clone();
-        let mut sha = suites.get("sha-256").cloned().unwrap();
-        sha.hashfn = std::rc::Rc::new(FakeSha256);
-
-        suites.insert("sha-256".to_owned(), sha).unwrap();
-        verifier.set_suites(suites);
-
-        let case: Case = read_all("./resources/cases/prover_1.2.0/vm_1.2.0/sha_16.json").unwrap();
-
-        let proof = case.get_proof().unwrap();
-
-        verifier
-            .verify(case.vk.into(), proof, case.journal)
-            .unwrap_err();
-    }
 
     pub struct LocPoseidon2;
 
@@ -321,23 +306,78 @@ mod use_custom_local_implemented_hash_function {
         }
     }
 
-    #[test]
-    fn should_poseidon2_work() {
-        let mut ctx = VerifierContext::v1_2().boxed();
-        ctx.set_poseidon2_mix_impl(Box::new(LocPoseidon2));
+    pub struct FakePoseidon2;
 
-        let case: Case =
-            read_all("./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json").unwrap();
+    impl Poseidon2Mix for FakePoseidon2 {
+        #[inline]
+        fn poseidon2_mix(&self, _cells: &mut [BabyBearElem; POSEIDON2_CELLS]) {}
+    }
+
+    #[rstest]
+    #[case::v1(
+        V1::v1_2(),
+        "./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json",
+        LocPoseidon2
+    )]
+    #[case::v1_succinct(
+        V1::v1_2(),
+        "./resources/cases/prover_1.2.0/vm_1.2.0/succinct_22.json",
+        LocPoseidon2
+    )]
+    #[should_panic(expected = "invalid")]
+    #[case::v1_with_fake(
+        V1::v1_2(),
+        "./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json",
+        FakePoseidon2
+    )]
+    #[should_panic(expected = "invalid")]
+    #[case::v1_succinct_with_fake(
+        V1::v1_2(),
+        "./resources/cases/prover_1.2.0/vm_1.2.0/succinct_22.json",
+        FakePoseidon2
+    )]
+    #[case::v2(
+        V2::v2_0(),
+        "./resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_22.json",
+        LocPoseidon2
+    )]
+    #[case::v2_succinct(
+        V2::v2_0(),
+        "./resources/cases/prover_2.0.0/vm_2.0.0/succinct_22.json",
+        LocPoseidon2
+    )]
+    #[should_panic(expected = "invalid")]
+    #[case::v2_with_fake(
+        V2::v2_0(),
+        "./resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_22.json",
+        FakePoseidon2
+    )]
+    #[should_panic(expected = "invalid")]
+    #[case::v2_succinct_with_fake(
+        V2::v2_0(),
+        "./resources/cases/prover_2.0.0/vm_2.0.0/succinct_22.json",
+        FakePoseidon2
+    )]
+    fn should_poseidon2_injected(
+        #[case] mut verifier: impl Verifier,
+        #[case] path: &str,
+        #[case] hash: impl Poseidon2Mix + Send + Sync + 'static,
+    ) {
+        verifier.set_poseidon2_mix_impl(Box::new(hash));
+
+        let case: Case = read_all(path).unwrap();
 
         let proof = case.get_proof().unwrap();
 
-        ctx.verify(case.vk.into(), proof, case.journal).unwrap()
+        verifier
+            .verify(case.vk.into(), proof, case.journal)
+            .unwrap()
     }
 }
 
 #[rstest_reuse::apply(segments)]
-fn fails_on_invalid_segment<SC: CircuitCoreDef, RC: CircuitCoreDef>(
-    #[case] ctx: VerifierContext<SC, RC>,
+fn fails_on_invalid_segment(
+    #[case] verifier: impl Verifier,
     #[case] path: &str,
     #[values(0, 1, 2)] segment: usize,
 ) {
@@ -350,17 +390,14 @@ fn fails_on_invalid_segment<SC: CircuitCoreDef, RC: CircuitCoreDef>(
 
     seal[seal.len() / 2] = seal[seal.len() / 2].wrapping_add(1);
 
-    let res = proof.verify(&ctx, case.vk, case.journal.digest());
+    let res = verifier.verify(case.vk.into(), proof, case.journal);
 
     assert!(res.is_err());
     assert!(matches!(res, Err(VerificationError::InvalidProof { .. })));
 }
 
 #[rstest_reuse::apply(succinct)]
-fn fails_on_invalid_succinct<SC: CircuitCoreDef, RC: CircuitCoreDef>(
-    #[case] ctx: VerifierContext<SC, RC>,
-    #[case] path: &str,
-) {
+fn fails_on_invalid_succinct(#[case] verifier: impl Verifier, #[case] path: &str) {
     let case: Case = read_all(path).unwrap();
     let mut proof = case.get_proof().unwrap();
 
@@ -368,17 +405,14 @@ fn fails_on_invalid_succinct<SC: CircuitCoreDef, RC: CircuitCoreDef>(
 
     seal[seal.len() / 2] = seal[seal.len() / 2].wrapping_add(1);
 
-    let res = proof.verify(&ctx, case.vk, case.journal.digest());
+    let res = verifier.verify(case.vk.into(), proof, case.journal);
 
     assert!(res.is_err());
     assert!(matches!(res, Err(VerificationError::InvalidProof { .. })));
 }
 
 #[rstest_reuse::apply(all)]
-fn fails_on_invalid_vk<SC: CircuitCoreDef, RC: CircuitCoreDef>(
-    #[case] ctx: VerifierContext<SC, RC>,
-    #[case] path: &str,
-) {
+fn fails_on_invalid_vk(#[case] verifier: impl Verifier, #[case] path: &str) {
     let mut case: Case = read_all(path).unwrap();
     let proof = case.get_proof().unwrap();
 
@@ -388,7 +422,7 @@ fn fails_on_invalid_vk<SC: CircuitCoreDef, RC: CircuitCoreDef>(
         .last_mut()
         .map(|l| *l = l.wrapping_add(1));
 
-    let res = proof.verify(&ctx, case.vk, case.journal.digest());
+    let res = verifier.verify(case.vk.into(), proof, case.journal);
 
     assert!(res.is_err());
     assert!(
@@ -398,10 +432,7 @@ fn fails_on_invalid_vk<SC: CircuitCoreDef, RC: CircuitCoreDef>(
 }
 
 #[rstest_reuse::apply(all)]
-fn fails_on_invalid_pubs<SC: CircuitCoreDef, RC: CircuitCoreDef>(
-    #[case] ctx: VerifierContext<SC, RC>,
-    #[case] path: &str,
-) {
+fn fails_on_invalid_pubs(#[case] verifier: impl Verifier, #[case] path: &str) {
     let mut case: Case = read_all(path).unwrap();
     let proof = case.get_proof().unwrap();
 
@@ -410,7 +441,7 @@ fn fails_on_invalid_pubs<SC: CircuitCoreDef, RC: CircuitCoreDef>(
         .last_mut()
         .map(|l| *l = l.wrapping_add(1));
 
-    let res = proof.verify(&ctx, case.vk, case.journal.digest());
+    let res = verifier.verify(case.vk.into(), proof, case.journal);
 
     assert!(res.is_err());
     assert!(
@@ -420,18 +451,15 @@ fn fails_on_invalid_pubs<SC: CircuitCoreDef, RC: CircuitCoreDef>(
 }
 
 #[rstest_reuse::apply(segments)]
-fn fails_on_invalid_claim<SC: CircuitCoreDef, RC: CircuitCoreDef>(
-    #[case] ctx: VerifierContext<SC, RC>,
-    #[case] path: &str,
-) {
+fn fails_on_invalid_claim(#[case] verifier: impl Verifier, #[case] path: &str) {
     let case: Case = read_all(path).unwrap();
     let mut proof = case.get_proof().unwrap();
 
     proof.inner.mut_composite().unwrap().segments[0]
         .claim
-        .exit_code = risc0_binfmt::ExitCode::Halted(0);
+        .exit_code = risc0_binfmt_v1::ExitCode::Halted(0);
 
-    let res = proof.verify(&ctx, case.vk, case.journal.digest());
+    let res = verifier.verify(case.vk.into(), proof, case.journal);
 
     assert!(res.is_err());
     assert!(
@@ -441,18 +469,15 @@ fn fails_on_invalid_claim<SC: CircuitCoreDef, RC: CircuitCoreDef>(
 }
 
 #[rstest_reuse::apply(succinct)]
-fn fails_on_invalid_inner_control_root<SC: CircuitCoreDef, RC: CircuitCoreDef>(
-    #[case] mut ctx: VerifierContext<SC, RC>,
-    #[case] path: &str,
-) {
+fn fails_on_invalid_inner_control_root(#[case] mut verifier: impl Verifier, #[case] path: &str) {
     let case: Case = read_all(path).unwrap();
     let proof = case.get_proof().unwrap();
 
-    ctx.succinct_verifier_parameters
-        .as_mut()
+    verifier
+        .mut_succinct_verifier_parameters()
         .map(|p| p.inner_control_root = Some(risc0_verifier::Digest::ZERO));
 
-    let res = proof.verify(&ctx, case.vk, case.journal.digest());
+    let res = verifier.verify(case.vk.into(), proof, case.journal);
 
     assert!(res.is_err());
     assert!(
@@ -462,16 +487,14 @@ fn fails_on_invalid_inner_control_root<SC: CircuitCoreDef, RC: CircuitCoreDef>(
 }
 
 #[rstest_reuse::apply(succinct)]
-fn fails_on_invalid_succinct_claim<SC: CircuitCoreDef, RC: CircuitCoreDef>(
-    #[case] ctx: VerifierContext<SC, RC>,
-    #[case] path: &str,
-) {
+fn fails_on_invalid_succinct_claim(#[case] verifier: impl Verifier, #[case] path: &str) {
     let case: Case = read_all(path).unwrap();
     let mut proof = case.get_proof().unwrap();
 
-    proof.inner.mut_succinct().unwrap().claim = MaybePruned::Pruned(risc0_verifier::Digest::ZERO);
+    proof.inner.mut_succinct().unwrap().claim =
+        risc0_verifier::receipt_claim::MaybePruned::Pruned(risc0_verifier::Digest::ZERO);
 
-    let res = proof.verify(&ctx, case.vk, case.journal.digest());
+    let res = verifier.verify(case.vk.into(), proof, case.journal);
 
     assert!(res.is_err());
     assert!(
@@ -483,86 +506,60 @@ fn fails_on_invalid_succinct_claim<SC: CircuitCoreDef, RC: CircuitCoreDef>(
 #[rstest_reuse::template]
 #[rstest]
 #[case::poseidon_proof_v1_0(
-    VerifierContext::v1_0(),
+    V1::v1_0(),
     "./resources/cases/prover_1.0.3/vm_1.0.5/poseidon2_22.json"
 )]
-#[case::sha_proof_v1_0(
-    VerifierContext::v1_0(),
-    "./resources/cases/prover_1.0.3/vm_1.0.5/sha_22.json"
-)]
+#[case::sha_proof_v1_0(V1::v1_0(), "./resources/cases/prover_1.0.3/vm_1.0.5/sha_22.json")]
 #[case::poseidon_proof_v1_1(
-    VerifierContext::v1_1(),
+    V1::v1_1(),
     "./resources/cases/prover_1.1.3/vm_1.1.3/poseidon2_22.json"
 )]
-#[case::sha_proof_v1_1(
-    VerifierContext::v1_1(),
-    "./resources/cases/prover_1.1.3/vm_1.1.3/sha_22.json"
-)]
+#[case::sha_proof_v1_1(V1::v1_1(), "./resources/cases/prover_1.1.3/vm_1.1.3/sha_22.json")]
 #[case::poseidon_proof_v1_2(
-    VerifierContext::v1_2(),
+    V1::v1_2(),
     "./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json"
 )]
-#[case::sha_proof_v1_2(
-    VerifierContext::v1_2(),
-    "./resources/cases/prover_1.2.0/vm_1.2.0/sha_22.json"
+#[case::sha_proof_v1_2(V1::v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/sha_22.json")]
+#[case::poseidon_proof_v2_0(
+    V2::v2_0(),
+    "./resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_22.json"
 )]
-fn segments(#[case] ctx: VerifierContext<SC, RC>, #[case] path: &str) {}
+fn segments(#[case] verifier: impl Verifier, #[case] path: &str) {}
 
 #[rstest_reuse::template]
 #[rstest]
-#[case::succinct_proof_v1_0(
-    VerifierContext::v1_0(),
-    "./resources/cases/prover_1.0.3/vm_1.0.5/succinct_22.json"
-)]
-#[case::succinct_proof_v1_1(
-    VerifierContext::v1_1(),
-    "./resources/cases/prover_1.1.3/vm_1.1.3/succinct_22.json"
-)]
-#[case::succinct_proof_v1_2(
-    VerifierContext::v1_2(),
-    "./resources/cases/prover_1.2.0/vm_1.2.0/succinct_22.json"
-)]
-fn succinct(#[case] ctx: VerifierContext<SC, RC>, #[case] path: &str) {}
+#[case::succinct_proof_v1_0(V1::v1_0(), "./resources/cases/prover_1.0.3/vm_1.0.5/succinct_22.json")]
+#[case::succinct_proof_v1_1(V1::v1_1(), "./resources/cases/prover_1.1.3/vm_1.1.3/succinct_22.json")]
+#[case::succinct_proof_v1_2(V1::v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/succinct_22.json")]
+#[case::succinct_proof_v2_0(V2::v2_0(), "./resources/cases/prover_2.0.0/vm_2.0.0/succinct_22.json")]
+fn succinct(#[case] verifier: impl Verifier, #[case] path: &str) {}
 
 #[rstest_reuse::template]
 #[rstest]
 #[case::poseidon_proof_v1_0(
-    VerifierContext::v1_0(),
+    V1::v1_0(),
     "./resources/cases/prover_1.0.3/vm_1.0.5/poseidon2_22.json"
 )]
-#[case::sha_proof_v1_0(
-    VerifierContext::v1_0(),
-    "./resources/cases/prover_1.0.3/vm_1.0.5/sha_22.json"
-)]
+#[case::sha_proof_v1_0(V1::v1_0(), "./resources/cases/prover_1.0.3/vm_1.0.5/sha_22.json")]
 #[case::poseidon_proof_v1_1(
-    VerifierContext::v1_1(),
+    V1::v1_1(),
     "./resources/cases/prover_1.1.3/vm_1.1.3/poseidon2_22.json"
 )]
-#[case::sha_proof_v1_1(
-    VerifierContext::v1_1(),
-    "./resources/cases/prover_1.1.3/vm_1.1.3/sha_22.json"
-)]
+#[case::sha_proof_v1_1(V1::v1_1(), "./resources/cases/prover_1.1.3/vm_1.1.3/sha_22.json")]
 #[case::poseidon_proof_v1_2(
-    VerifierContext::v1_2(),
+    V1::v1_2(),
     "./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json"
 )]
-#[case::sha_proof_v1_2(
-    VerifierContext::v1_2(),
-    "./resources/cases/prover_1.2.0/vm_1.2.0/sha_22.json"
+#[case::sha_proof_v1_2(V1::v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/sha_22.json")]
+#[case::poseidon_proof_v2_0(
+    V2::v2_0(),
+    "./resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_22.json"
 )]
-#[case::succinct_proof_v1_0(
-    VerifierContext::v1_0(),
-    "./resources/cases/prover_1.0.3/vm_1.0.5/succinct_22.json"
-)]
-#[case::succinct_proof_v1_1(
-    VerifierContext::v1_1(),
-    "./resources/cases/prover_1.1.3/vm_1.1.3/succinct_22.json"
-)]
-#[case::succinct_proof_v1_2(
-    VerifierContext::v1_2(),
-    "./resources/cases/prover_1.2.0/vm_1.2.0/succinct_22.json"
-)]
-fn all(#[case] ctx: VerifierContext<SC, RC>, #[case] path: &str) {}
+#[case::succinct_proof_v1_0(V1::v1_0(), "./resources/cases/prover_1.0.3/vm_1.0.5/succinct_22.json")]
+#[case::succinct_proof_v1_1(V1::v1_1(), "./resources/cases/prover_1.1.3/vm_1.1.3/succinct_22.json")]
+#[case::succinct_proof_v1_2(V1::v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/succinct_22.json")]
+#[case::succinct_proof_v2_0(V2::v2_0(), "./resources/cases/prover_2.0.0/vm_2.0.0/succinct_22.json")]
+fn all(#[case] verifier: impl Verifier, #[case] path: &str) {}
 
 fn read_all<T: DeserializeOwned>(path: impl AsRef<Path>) -> anyhow::Result<T> {
     let file = File::open(path.as_ref())?;
@@ -600,7 +597,9 @@ impl Case {
 trait ExInnerReceipt {
     fn mut_composite(&mut self) -> Result<&mut CompositeReceipt, VerificationError>;
 
-    fn mut_succinct(&mut self) -> Result<&mut SuccinctReceipt<ReceiptClaim>, VerificationError>;
+    fn mut_succinct(
+        &mut self,
+    ) -> Result<&mut SuccinctReceipt<risc0_verifier::receipt_claim::ReceiptClaim>, VerificationError>;
 }
 
 impl ExInnerReceipt for risc0_verifier::InnerReceipt {
@@ -612,7 +611,10 @@ impl ExInnerReceipt for risc0_verifier::InnerReceipt {
         }
     }
 
-    fn mut_succinct(&mut self) -> Result<&mut SuccinctReceipt<ReceiptClaim>, VerificationError> {
+    fn mut_succinct(
+        &mut self,
+    ) -> Result<&mut SuccinctReceipt<risc0_verifier::receipt_claim::ReceiptClaim>, VerificationError>
+    {
         if let Self::Succinct(x) = self {
             Ok(x)
         } else {

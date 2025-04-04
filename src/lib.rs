@@ -22,37 +22,39 @@ extern crate std;
 extern crate alloc;
 extern crate core;
 
-pub use circuit::CircuitCoreDef;
-pub use context::{SegmentInfo, Verifier, VerifierContext};
+pub use context::{v1::V1, v2::V2, SegmentInfo};
 pub use key::Vk;
 pub use receipt::{
     composite::CompositeReceipt, succinct::SuccinctReceipt, InnerReceipt, Journal, Proof,
 };
-pub use receipt_claim::{MaybePruned, ReceiptClaim};
 pub use sha::{Digest, Digestible};
 
-pub use risc0_zkp::verify::VerificationError;
+pub use risc0_zkp_v1::verify::VerificationError;
+pub use verifier::Verifier;
+
+pub mod poseidon2_injection;
+pub mod sha;
 
 mod circuit;
 mod context;
 mod key;
-pub mod poseidon2_injection;
 mod receipt;
-mod receipt_claim;
+pub mod receipt_claim;
 mod segment;
-pub mod sha;
+mod translate;
+mod verifier;
 
 /// Verifies the given `proof` and public inputs `pubs` using the verification key `vk` within the provided
-/// `VerifierContext`. The context identifies the prover version used to generate the proof. Refer to [`VerifierContext`]
+/// `VerifierContext`. The context identifies the prover version used to generate the proof. Refer to [`V1`]
 /// for more details on obtaining the version compatible with the prover used to generate the proof.
 ///
 /// The verification key `vk` is used to validate the proof `proof` against the public inputs `pubs`.
 /// Verification can fail if the proof is invalid or was generated with a different RISC Zero prover version.
-pub fn verify<RC: CircuitCoreDef, SC: CircuitCoreDef>(
-    ctx: &VerifierContext<RC, SC>,
+pub fn verify(
+    verifier: &impl Verifier,
     vk: Vk,
     proof: Proof,
     pubs: Journal,
 ) -> Result<(), VerificationError> {
-    proof.verify(ctx, vk.0, pubs.digest())
+    verifier.verify(vk.0, proof, pubs)
 }

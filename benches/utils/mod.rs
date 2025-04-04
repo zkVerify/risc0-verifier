@@ -21,7 +21,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use risc0_verifier::{CircuitCoreDef, Digest, Journal, Proof, VerifierContext, Vk};
+use risc0_verifier::{Digest, Journal, Proof, Verifier, Vk};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -31,13 +31,8 @@ pub struct Case {
     pub vk: Vk,
 }
 
-pub fn compute<SC: CircuitCoreDef + 'static, RC: CircuitCoreDef + 'static>(
-    ctx: &VerifierContext<SC, RC>,
-    proof: &Proof,
-    vk: Vk,
-    pubs: Digest,
-) {
-    proof.verify(&ctx, vk, pubs).unwrap()
+pub fn compute(verifier: &impl Verifier, proof: Proof, vk: Digest, pubs: Journal) {
+    verifier.verify(vk, proof, pubs).unwrap()
 }
 
 pub fn read_json<T: DeserializeOwned>(path: impl AsRef<Path>) -> anyhow::Result<T> {

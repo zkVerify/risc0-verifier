@@ -2,6 +2,11 @@
 
 A `no-std` verifier for [RISC-Zero](https://github.com/risc0/risc0) STARK proofs.
 
+**Disclaimer**: Due a little issue on upstream `risc0-circuit-rv32im@2.0.2` crate this crate is not _strictly_ 
+`no-std` because transitively include `bit-vec` without gates out `std` feature. So, it's not possible to compile this 
+crate for a general bare metal target like `thumbv7em-none-eabi` but it works on lots of others no std environments. 
+We have temporarily disabled the CI checks till the upstream issue is not fixed.
+
 This crate provides a way for deserializing
 
 - `Proof` (aka risc0 receipt)
@@ -11,7 +16,7 @@ This crate provides a way for deserializing
 And then you can verify the given proof generated with a specific risc0 vm version against
 the verification key and public inputs.
 
-In order to choose the vm version you should get the `VerifierContext` coherent with the
+To choose the vm version you should get the `VerifierContext` coherent with the
 vm version used to generate the proof. For instance the following code assume that the proof
 was generated with risc0 vm version `1.2`.
 
@@ -36,15 +41,17 @@ was generated with risc0 vm version `1.2`.
     // This just deserialize a risc0 receipt serialized with `ciborium` crate
     let proof : Proof = ciborium::from_reader(File::open(receipt_path).unwrap()).unwrap();
 
-    assert!(verify(&VerifierContext::v1_2(), vk.clone(), proof.clone(), journal.clone()).is_ok());
+    assert!(verify(&V1::v1_2(), vk.clone(), proof.clone(), journal.clone()).is_ok());
 
     // Or with dynamic dispatching
-    let verifier_1_2 = VerifierContext::v1_2().boxed();
-    let verifier_1_1 = VerifierContext::v1_1().boxed();
+    let verifier_1_2 = V1::v1_2().boxed();
+    let verifier_1_1 = V1::v1_1().boxed();
     
     assert!(verifier_1_2.verify(vk.clone().into(), proof.clone(), journal.clone()).is_ok());
     assert!(!verifier_1_1.verify(vk.into(), proof, journal).is_ok());
 ```
+
+For `2.x.y` versions use `V2` instead. 
 
 ## Save a risc0 receipt
 
@@ -60,7 +67,7 @@ be deserialized into `risc0-verifier::Journal` as well. For the
 ```rust
     use risc0_verifier::Vk;
     let vk : Vk = hex_literal::hex!("9db9988d9fbcacadf2bd29fc7c60b98bc4234342fe536eb983169eb6cc248009").into();
-    let r0 : risc0_zkp::core::digest::Digest = [
+    let r0 : risc0_zkp_v1::core::digest::Digest = [
         2375596445,
         2913778847,
         4230594034,

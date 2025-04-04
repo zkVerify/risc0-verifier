@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 /// The verification key (aka image id, the hash of the guest program)
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Vk(pub risc0_zkp::core::digest::Digest);
+pub struct Vk(pub risc0_zkp_v1::core::digest::Digest);
 
 impl Vk {
     pub fn as_words(&self) -> &[u32] {
@@ -29,19 +29,19 @@ impl Vk {
     }
 }
 
-impl From<[u32; risc0_zkp::core::digest::DIGEST_WORDS]> for Vk {
-    fn from(value: [u32; risc0_zkp::core::digest::DIGEST_WORDS]) -> Self {
+impl From<[u32; risc0_zkp_v1::core::digest::DIGEST_WORDS]> for Vk {
+    fn from(value: [u32; risc0_zkp_v1::core::digest::DIGEST_WORDS]) -> Self {
         Self(value.into())
     }
 }
 
-impl From<[u8; risc0_zkp::core::digest::DIGEST_BYTES]> for Vk {
-    fn from(value: [u8; risc0_zkp::core::digest::DIGEST_BYTES]) -> Self {
+impl From<[u8; risc0_zkp_v1::core::digest::DIGEST_BYTES]> for Vk {
+    fn from(value: [u8; risc0_zkp_v1::core::digest::DIGEST_BYTES]) -> Self {
         Vk(value.into())
     }
 }
 
-impl From<Vk> for risc0_zkp::core::digest::Digest {
+impl From<Vk> for risc0_zkp_v1::core::digest::Digest {
     fn from(value: Vk) -> Self {
         value.0
     }

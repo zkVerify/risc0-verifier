@@ -16,7 +16,7 @@
 // limitations under the License.
 //
 
-use risc0_zkp::taps::{TapData, TapSet};
+use risc0_zkp_v1::taps::{TapData, TapSet};
 
 #[allow(missing_docs)]
 pub const TAPSET: &TapSet = &TapSet::<'static> {
