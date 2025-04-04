@@ -36,11 +36,11 @@ was generated with risc0 vm version `1.2`.
     // This just deserialize a risc0 receipt serialized with `ciborium` crate
     let proof : Proof = ciborium::from_reader(File::open(receipt_path).unwrap()).unwrap();
 
-    assert!(verify(&VerifierContext::v1_2(), vk.clone(), proof.clone(), journal.clone()).is_ok());
+    assert!(verify(&V1::v1_2(), vk.clone(), proof.clone(), journal.clone()).is_ok());
 
     // Or with dynamic dispatching
-    let verifier_1_2 = VerifierContext::v1_2().boxed();
-    let verifier_1_1 = VerifierContext::v1_1().boxed();
+    let verifier_1_2 = V1::v1_2().boxed();
+    let verifier_1_1 = V1::v1_1().boxed();
     
     assert!(verifier_1_2.verify(vk.clone().into(), proof.clone(), journal.clone()).is_ok());
     assert!(!verifier_1_1.verify(vk.into(), proof, journal).is_ok());

@@ -30,12 +30,11 @@ use risc0_zkp_v1::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    circuit::CircuitCoreDef,
     receipt::merkle::MerkleProof,
     receipt_claim::{MaybePruned, Unknown},
     sha,
 };
-use crate::context::IntoOther;
+use crate::translate::Translate;
 
 /// A succinct receipt, produced via recursion, proving the execution of the zkVM with a [STARK].
 ///
@@ -89,7 +88,7 @@ where
         &self,
         ctx: &impl crate::context::VC,
     ) -> Result<(), VerificationError> {
-        let params = ctx
+        let params = ctx.verifier_parameters()
             .succinct_verifier_parameters()
             .ok_or(VerificationError::VerifierParametersMissing)?;
 
@@ -280,11 +279,11 @@ impl SuccinctReceiptVerifierParameters {
         Self {
             // ALLOWED_CONTROL_ROOT is a precalculated version of the control root, as calculated
             // by the allowed_control_root function above.
-            control_root: circuit::control_id::ALLOWED_CONTROL_ROOT.into_other(),
+            control_root: circuit::control_id::ALLOWED_CONTROL_ROOT.translate(),
             inner_control_root: None,
             proof_system_info: PROOF_SYSTEM_INFO,
             circuit_info:
-                <circuit::CircuitImpl as risc0_zkp_v2::adapter::CircuitInfo>::CIRCUIT_INFO.into_other(),
+                <circuit::CircuitImpl as risc0_zkp_v2::adapter::CircuitInfo>::CIRCUIT_INFO.translate(),
         }
     }
 }

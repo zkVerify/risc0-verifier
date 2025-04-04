@@ -13,16 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use risc0_verifier::{Digestible as _, V2, VC};
+use risc0_verifier::Digestible as _;
 use risc0_verifier::Verifier;
 use risc0_verifier::{verify, SegmentInfo};
 use risc0_verifier::{
-    CircuitCoreDef, CompositeReceipt, Journal, MaybePruned, Proof, ReceiptClaim, SuccinctReceipt,
-    VerifierContext, Vk,
+    CompositeReceipt, Journal, MaybePruned, Proof, ReceiptClaim, SuccinctReceipt,
+    Vk, V1,
 };
-use risc0_zkp_v1::core::hash::{HashFn, HashSuite};
-use risc0_zkp_v1::field::baby_bear::BabyBear;
-use risc0_zkp_v1::field::Field;
 use risc0_zkp_v1::verify::VerificationError;
 use rstest::rstest;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -31,6 +28,8 @@ use std::{
     io::BufReader,
     path::{Path, PathBuf},
 };
+use risc0_verifier::V2;
+
 mod legacy {
 
     use super::*;
@@ -43,7 +42,7 @@ mod legacy {
         let inner_receipt = deserialize_proof(&proof).unwrap();
         let journal = deserialize_pubs(&pubs).unwrap();
 
-        let ctx = VerifierContext::v1_0();
+        let ctx = V1::v1_0();
         let proof = Proof::new(inner_receipt);
         proof.verify(&ctx, vk, journal.digest()).unwrap()
     }
@@ -86,10 +85,10 @@ mod legacy {
 }
 
 #[rstest]
-#[case::v1(VerifierContext::v1_0(), "./resources/cases/prover_1.0.3/vm_1.1.3/sha_16.json")]
+#[case::v1(V1::v1_0(), "./resources/cases/prover_1.0.3/vm_1.1.3/sha_16.json")]
 #[case::v2(V2::v2_0(), "./resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_16.json")]
 fn verify_valid_proof(
-    #[case] verifier: impl VC,
+    #[case] verifier: impl Verifier,
     #[case] path: &str,
 ) {
     let case: Case = read_all(path).unwrap();
@@ -100,7 +99,7 @@ fn verify_valid_proof(
 }
 
 #[rstest]
-#[case::v1(VerifierContext::v1_0().boxed(), "./resources/cases/prover_1.0.3/vm_1.1.3/sha_16.json")]
+#[case::v1(V1::v1_0().boxed(), "./resources/cases/prover_1.0.3/vm_1.1.3/sha_16.json")]
 #[case::v2(V2::v2_0().boxed(), "./resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_16.json")]
 fn verify_valid_proof_dynamic<H>(
     #[case] verifier: Box<dyn Verifier<HashSuite=H>>,
@@ -118,7 +117,7 @@ fn verify_valid_proof_dynamic<H>(
 
 #[rstest]
 fn read_po2_segment_v1(
-    #[values(VerifierContext::v1_0(), VerifierContext::v1_1(), VerifierContext::v1_2())]
+    #[values(V1::v1_0(), V1::v1_1(), V1::v1_2())]
     verifier: impl Verifier,
     #[values(16, 17, 18, 19, 20, 21)] expected_po2: u32,
     #[values("sha-256", "poseidon2")] hash: &str,
@@ -157,9 +156,9 @@ fn read_po2_segment_v2(
 }
 
 #[rstest]
-#[case(VerifierContext::v1_0(), "./resources/cases/prover_1.0.3/vm_1.0.5/sha_22.json", ("sha-256", [20,20,17].as_slice()))]
-#[case(VerifierContext::v1_1(), "./resources/cases/prover_1.1.3/vm_1.1.1/sha_22.json", ("sha-256", [20,20,17].as_slice()))]
-#[case(VerifierContext::v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/sha_22.json", ("sha-256", [20,20,17].as_slice()))]
+#[case(V1::v1_0(), "./resources/cases/prover_1.0.3/vm_1.0.5/sha_22.json", ("sha-256", [20,20,17].as_slice()))]
+#[case(V1::v1_1(), "./resources/cases/prover_1.1.3/vm_1.1.1/sha_22.json", ("sha-256", [20,20,17].as_slice()))]
+#[case(V1::v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/sha_22.json", ("sha-256", [20,20,17].as_slice()))]
 #[case(V2::v2_0(), "./resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_16.json", ("poseidon2", [16].as_slice()))]
 #[case(V2::v2_0(), "./resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_22.json", ("poseidon2", [20,20,20,20].as_slice()))]
 fn read_po2_segments(
@@ -184,7 +183,7 @@ fn read_po2_segments(
 }
 
 #[rstest]
-#[case(VerifierContext::v1_2(), "./resources/cases/poseidon2_22_segment_20.json")]
+#[case(V1::v1_2(), "./resources/cases/poseidon2_22_segment_20.json")]
 #[case(V2::v2_0(), "./resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_22.json")]
 fn read_po2_segments_case_limit_segments(
     #[case] verifier: impl Verifier,
@@ -208,9 +207,9 @@ mod v1_0 {
     use super::*;
 
     #[rstest]
-    #[case::should_pass(VerifierContext::v1_0())]
+    #[case::should_pass(V1::v1_0())]
     #[should_panic(expected = "control_id mismatch")]
-    #[case::should_fails_with_new_verifier(VerifierContext::v1_1())]
+    #[case::should_fails_with_new_verifier(V1::v1_1())]
     fn verify_valid_proof(
         #[case] verifier: impl Verifier,
         #[files("./resources/cases/prover_1.0.*/**/*.json")] path: PathBuf,
@@ -229,9 +228,9 @@ mod v1_1 {
     use super::*;
 
     #[rstest]
-    #[case::should_pass(VerifierContext::v1_1())]
+    #[case::should_pass(V1::v1_1())]
     #[should_panic(expected = "control_id mismatch")]
-    #[case::should_fails_with_old_verifier(VerifierContext::v1_0())]
+    #[case::should_fails_with_old_verifier(V1::v1_0())]
     fn verify_valid_proof(
         #[case] verifier: impl Verifier,
         #[files("./resources/cases/prover_1.1.*/**/*.json")] path: PathBuf,
@@ -250,9 +249,9 @@ mod v1_2 {
     use super::*;
 
     #[rstest]
-    #[case::should_pass(VerifierContext::v1_2())]
+    #[case::should_pass(V1::v1_2())]
     #[should_panic(expected = "control_id mismatch")]
-    #[case::should_fails_with_old_verifier(VerifierContext::v1_0())]
+    #[case::should_fails_with_old_verifier(V1::v1_0())]
     fn verify_valid_proof(
         #[case] verifier: impl Verifier,
         #[files("./resources/cases/prover_1.2.*/**/*.json")] path: PathBuf,
@@ -273,7 +272,7 @@ mod v2_0 {
     #[rstest]
     #[case::should_pass(V2::v2_0())]
     #[should_panic]
-    #[case::should_fails_with_old_verifier(VerifierContext::v1_2().boxed())]
+    #[case::should_fails_with_old_verifier(V1::v1_2().boxed())]
     fn verify_valid_proof(
         #[case] verifier: impl Verifier,
         #[files("./resources/cases/prover_2.0.*/**/*.json")] path: PathBuf,
@@ -326,12 +325,12 @@ mod use_custom_local_implemented_hash_function {
     }
 
     #[rstest]
-    #[case::v1(VerifierContext::v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json", LocPoseidon2)]
-    #[case::v1_succinct(VerifierContext::v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/succinct_22.json", LocPoseidon2)]
+    #[case::v1(V1::v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json", LocPoseidon2)]
+    #[case::v1_succinct(V1::v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/succinct_22.json", LocPoseidon2)]
     #[should_panic(expected = "invalid")]
-    #[case::v1_with_fake(VerifierContext::v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json", FakePoseidon2)]
+    #[case::v1_with_fake(V1::v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json", FakePoseidon2)]
     #[should_panic(expected = "invalid")]
-    #[case::v1_succinct_with_fake(VerifierContext::v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/succinct_22.json", FakePoseidon2)]
+    #[case::v1_succinct_with_fake(V1::v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/succinct_22.json", FakePoseidon2)]
     #[case::v2(V2::v2_0(), "./resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_22.json", LocPoseidon2)]
     #[case::v2_succinct(V2::v2_0(), "./resources/cases/prover_2.0.0/vm_2.0.0/succinct_22.json", LocPoseidon2)]
     #[should_panic(expected = "invalid")]
@@ -500,27 +499,27 @@ fn fails_on_invalid_succinct_claim(
 #[rstest_reuse::template]
 #[rstest]
 #[case::poseidon_proof_v1_0(
-    VerifierContext::v1_0(),
+    V1::v1_0(),
     "./resources/cases/prover_1.0.3/vm_1.0.5/poseidon2_22.json"
 )]
 #[case::sha_proof_v1_0(
-    VerifierContext::v1_0(),
+    V1::v1_0(),
     "./resources/cases/prover_1.0.3/vm_1.0.5/sha_22.json"
 )]
 #[case::poseidon_proof_v1_1(
-    VerifierContext::v1_1(),
+    V1::v1_1(),
     "./resources/cases/prover_1.1.3/vm_1.1.3/poseidon2_22.json"
 )]
 #[case::sha_proof_v1_1(
-    VerifierContext::v1_1(),
+    V1::v1_1(),
     "./resources/cases/prover_1.1.3/vm_1.1.3/sha_22.json"
 )]
 #[case::poseidon_proof_v1_2(
-    VerifierContext::v1_2(),
+    V1::v1_2(),
     "./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json"
 )]
 #[case::sha_proof_v1_2(
-    VerifierContext::v1_2(),
+    V1::v1_2(),
     "./resources/cases/prover_1.2.0/vm_1.2.0/sha_22.json"
 )]
 #[case::poseidon_proof_v2_0(
@@ -532,15 +531,15 @@ fn segments(#[case] verifier: impl Verifier, #[case] path: &str) {}
 #[rstest_reuse::template]
 #[rstest]
 #[case::succinct_proof_v1_0(
-    VerifierContext::v1_0(),
+    V1::v1_0(),
     "./resources/cases/prover_1.0.3/vm_1.0.5/succinct_22.json"
 )]
 #[case::succinct_proof_v1_1(
-    VerifierContext::v1_1(),
+    V1::v1_1(),
     "./resources/cases/prover_1.1.3/vm_1.1.3/succinct_22.json"
 )]
 #[case::succinct_proof_v1_2(
-    VerifierContext::v1_2(),
+    V1::v1_2(),
     "./resources/cases/prover_1.2.0/vm_1.2.0/succinct_22.json"
 )]
 #[case::succinct_proof_v2_0(
@@ -552,27 +551,27 @@ fn succinct(#[case] verifier: impl Verifier, #[case] path: &str) {}
 #[rstest_reuse::template]
 #[rstest]
 #[case::poseidon_proof_v1_0(
-    VerifierContext::v1_0(),
+    V1::v1_0(),
     "./resources/cases/prover_1.0.3/vm_1.0.5/poseidon2_22.json"
 )]
 #[case::sha_proof_v1_0(
-    VerifierContext::v1_0(),
+    V1::v1_0(),
     "./resources/cases/prover_1.0.3/vm_1.0.5/sha_22.json"
 )]
 #[case::poseidon_proof_v1_1(
-    VerifierContext::v1_1(),
+    V1::v1_1(),
     "./resources/cases/prover_1.1.3/vm_1.1.3/poseidon2_22.json"
 )]
 #[case::sha_proof_v1_1(
-    VerifierContext::v1_1(),
+    V1::v1_1(),
     "./resources/cases/prover_1.1.3/vm_1.1.3/sha_22.json"
 )]
 #[case::poseidon_proof_v1_2(
-    VerifierContext::v1_2(),
+    V1::v1_2(),
     "./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json"
 )]
 #[case::sha_proof_v1_2(
-    VerifierContext::v1_2(),
+    V1::v1_2(),
     "./resources/cases/prover_1.2.0/vm_1.2.0/sha_22.json"
 )]
 #[case::poseidon_proof_v2_0(
@@ -580,15 +579,15 @@ fn succinct(#[case] verifier: impl Verifier, #[case] path: &str) {}
     "./resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_22.json"
 )]
 #[case::succinct_proof_v1_0(
-    VerifierContext::v1_0(),
+    V1::v1_0(),
     "./resources/cases/prover_1.0.3/vm_1.0.5/succinct_22.json"
 )]
 #[case::succinct_proof_v1_1(
-    VerifierContext::v1_1(),
+    V1::v1_1(),
     "./resources/cases/prover_1.1.3/vm_1.1.3/succinct_22.json"
 )]
 #[case::succinct_proof_v1_2(
-    VerifierContext::v1_2(),
+    V1::v1_2(),
     "./resources/cases/prover_1.2.0/vm_1.2.0/succinct_22.json"
 )]
 #[case::succinct_proof_v2_0(

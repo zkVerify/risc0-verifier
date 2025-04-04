@@ -17,12 +17,10 @@
 //
 
 use alloc::{collections::BTreeSet, string::String, vec::Vec};
-use risc0_binfmt_v1::{tagged_iter, tagged_struct, Digestible, ExitCode, SystemState};
+use risc0_binfmt_v1::{tagged_iter, tagged_struct, Digestible};
 use risc0_zkp_v1::{
     adapter::{ProtocolInfo, PROOF_SYSTEM_INFO},
     core::{digest::Digest, hash::sha::Sha256},
-    field::{baby_bear::BabyBearElem, Elem},
-    layout::Tree,
     verify::VerificationError,
     MIN_CYCLES_PO2,
 };
@@ -30,12 +28,10 @@ use risc0_zkp_v1::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    circuit::CircuitCoreDef,
     receipt::DEFAULT_MAX_PO2,
-    receipt_claim::{MaybePruned, ReceiptClaim},
-    sha, VerifierContext,
+    receipt_claim::ReceiptClaim,
+    sha,
 };
-use crate::context::IntoOther;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -54,7 +50,7 @@ impl SegmentReceipt {
         &self,
         ctx: &impl crate::context::VC,
     ) -> Result<(), VerificationError> {
-        let params = ctx
+        let params = ctx.verifier_parameters()
             .segment_verifier_parameters()
             .ok_or(VerificationError::VerifierParametersMissing)?;
 
@@ -177,8 +173,11 @@ impl SegmentReceiptVerifierParameters {
         use risc0_zkp_v2::adapter::{PROOF_SYSTEM_INFO, CircuitInfo};
         let p_info = ProtocolInfo(PROOF_SYSTEM_INFO.0);
         let circuit = ProtocolInfo(crate::circuit::v2_0::CircuitImpl::CIRCUIT_INFO.0);
+        fn fake_control_id(_hash_name: &str, _po2: usize) -> Option<Digest> {
+            None
+        }
         Self::from_max_po2(
-            &crate::circuit::v2_0::control_id,
+            &fake_control_id,
             DEFAULT_MAX_PO2,
             p_info,
             circuit,

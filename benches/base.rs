@@ -20,7 +20,7 @@ fn main() {
     divan::main();
 }
 
-use risc0_verifier::{Digestible as _, VerifierContext};
+use risc0_verifier::{Digestible as _, V1};
 
 use utils::*;
 
@@ -31,7 +31,7 @@ pub mod sha {
 
     #[divan::bench]
     fn verify_1_2_0_16() {
-        let ctx = VerifierContext::v1_2();
+        let ctx = V1::v1_2();
         let case: Case = read_json("resources/cases/prover_1.2.0/vm_1.2.0/sha_16.json").unwrap();
         let proof = read_bin(case.receipt_path).unwrap();
 
@@ -45,7 +45,7 @@ pub mod sha {
 
     #[divan::bench]
     fn verify_1_2_0_22() {
-        let ctx = VerifierContext::v1_2();
+        let ctx = V1::v1_2();
         let case: Case = read_json("resources/cases/prover_1.2.0/vm_1.2.0/sha_22.json").unwrap();
         let proof = read_bin(case.receipt_path).unwrap();
 
@@ -66,7 +66,7 @@ pub mod sha {
 
         #[divan::bench]
         fn verify_1_2_0_16() {
-            let ctx = VerifierContext::v1_2();
+            let ctx = V1::v1_2();
             let case: Case = read_json(path(16)).unwrap();
             let proof = read_bin(case.receipt_path).unwrap();
 
@@ -80,7 +80,7 @@ pub mod sha {
 
         #[divan::bench]
         fn verify_1_2_0_17() {
-            let ctx = VerifierContext::v1_2();
+            let ctx = V1::v1_2();
             let case: Case = read_json(path(17)).unwrap();
             let proof = read_bin(case.receipt_path).unwrap();
 
@@ -94,7 +94,7 @@ pub mod sha {
 
         #[divan::bench]
         fn verify_1_2_0_18() {
-            let ctx = VerifierContext::v1_2();
+            let ctx = V1::v1_2();
             let case: Case = read_json(path(18)).unwrap();
             let proof = read_bin(case.receipt_path).unwrap();
 
@@ -108,7 +108,7 @@ pub mod sha {
 
         #[divan::bench]
         fn verify_1_2_0_19() {
-            let ctx = VerifierContext::v1_2();
+            let ctx = V1::v1_2();
             let case: Case = read_json(path(19)).unwrap();
             let proof = read_bin(case.receipt_path).unwrap();
 
@@ -122,7 +122,7 @@ pub mod sha {
 
         #[divan::bench]
         fn verify_1_2_0_20() {
-            let ctx = VerifierContext::v1_2();
+            let ctx = V1::v1_2();
             let case: Case = read_json(path(20)).unwrap();
             let proof = read_bin(case.receipt_path).unwrap();
 
@@ -136,7 +136,7 @@ pub mod sha {
 
         #[divan::bench]
         fn verify_1_2_0_21() {
-            let ctx = VerifierContext::v1_2();
+            let ctx = V1::v1_2();
             let case: Case = read_json(path(21)).unwrap();
             let proof = read_bin(case.receipt_path).unwrap();
 
@@ -152,7 +152,7 @@ pub mod sha {
 
 #[divan::bench]
 fn case_limit() {
-    let ctx = VerifierContext::v1_2();
+    let ctx = V1::v1_2();
     let case: Case = read_json("resources/cases/poseidon2_22_segment_20.json").unwrap();
     let proof = read_bin(case.receipt_path).unwrap();
 
@@ -169,11 +169,11 @@ pub mod poseidon2 {
 
     mod v_1_2 {
         use super::*;
-        use risc0_verifier::{Verifier, VC, VerifierContext};
+        use risc0_verifier::{Verifier, VC, V1};
         use crate::utils::{compute, read_bin, read_json, Case};
 
         fn context() -> impl Verifier + VC {
-            VerifierContext::v1_2()
+            V1::v1_2()
         }
 
         #[divan::bench]
@@ -302,11 +302,11 @@ pub mod poseidon2 {
 
     mod v_2_0 {
         use super::*;
-        use risc0_verifier::{Verifier, VC, VerifierContext};
+        use risc0_verifier::{Verifier, VC, V1};
         use crate::utils::{compute, read_bin, read_json, Case};
 
         fn context() -> impl Verifier + VC {
-            risc0_verifier::V2::v2_0()
+            risc0_verifier::context::v2::V2::v2_0()
         }
 
         #[divan::bench]
@@ -439,7 +439,7 @@ pub mod succinct {
 
     #[divan::bench]
     fn verify_1_2_0_16() {
-        let ctx = VerifierContext::v1_2();
+        let ctx = V1::v1_2();
         let case: Case =
             read_json("resources/cases/prover_1.2.0/vm_1.2.0/succinct_16.json").unwrap();
         let proof = read_bin(case.receipt_path).unwrap();
@@ -454,7 +454,7 @@ pub mod succinct {
 
     #[divan::bench]
     fn verify_1_2_0_22() {
-        let ctx = VerifierContext::v1_2();
+        let ctx = V1::v1_2();
         let case: Case =
             read_json("resources/cases/prover_1.2.0/vm_1.2.0/succinct_22.json").unwrap();
         let proof = read_bin(case.receipt_path).unwrap();

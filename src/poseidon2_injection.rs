@@ -26,7 +26,7 @@
 //!
 //! ```
 //! # use std::path::PathBuf;
-//! # use risc0_verifier::{ Digestible, Journal, Proof, VerifierContext, Vk };
+//! # use risc0_verifier::{ Digestible, Journal, Proof,  V1, Vk };
 //! # use serde::{ Deserialize, Serialize };
 //! # #[derive(Serialize, Deserialize)]
 //! # struct Case {
@@ -57,9 +57,10 @@
 //! #         }
 //! #     }
 //! # }
-//! use risc0_verifier::poseidon2_injection::{
+//! use risc0_verifier::{
+//!     poseidon2_injection::{
 //!     BabyBearElem, poseidon2_mix, Poseidon2Mix, POSEIDON2_CELLS
-//! };
+//! }, Verifier};
 //! struct LocPoseidon2;
 //!
 //! impl Poseidon2Mix for LocPoseidon2 {
@@ -72,20 +73,18 @@
 //!     }
 //! }
 //!
-//! let mut ctx = VerifierContext::v1_2();
-//! ctx.set_poseidon2_mix_impl(LocPoseidon2);
+//! let mut verifier = V1::v1_2();
+//! verifier.set_poseidon2_mix_impl(Box::new(LocPoseidon2));
 //!
 //! let case: Case = read_all("./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json").unwrap();
 //! let proof = case.get_proof().unwrap();
 //!
-//! proof.verify(&ctx, case.vk, case.journal.digest()).unwrap()
+//! verifier.verify(case.vk.into(), proof, case.journal).unwrap()
 //! ```
 //!
 
 extern crate alloc;
 use alloc::boxed::Box;
-
-use crate::{CircuitCoreDef, VerifierContext};
 
 use super::Digest;
 use risc0_core_v1::field::baby_bear::BabyBear;
@@ -107,15 +106,6 @@ use risc0_zkp_v1::{
     },
     field::{Elem as _, ExtElem as _},
 };
-
-impl<SC: CircuitCoreDef, RC: CircuitCoreDef> VerifierContext<SC, RC> {
-    /// Return [VerifierContext] with the inject poseidon2 implementation.
-    pub fn set_poseidon2_mix_impl(&mut self, poseidon2: impl Poseidon2Mix + Send + Sync + 'static) {
-        self.suites
-            .entry("poseidon2".into())
-            .and_modify(|s| s.hashfn = alloc::rc::Rc::new(Poseidon2Impl::new(poseidon2)));
-    }
-}
 
 /// Abstract the capability of implement a base poseidon2 hash function.
 pub trait Poseidon2Mix {
@@ -216,17 +206,17 @@ impl<T: Poseidon2Mix + Send + Sync> HashFn<BabyBear> for Poseidon2Impl<T> {
 
 mod v2 {
     use alloc::boxed::Box;
-    use risc0_core_v2::field::{baby_bear::{BabyBear, BabyBearElem}, Field};
-    use risc0_zkp_v2::core::digest::{Digest, DIGEST_WORDS};
-    use crate::context::IntoOther;
-    use crate::poseidon2_injection::{to_digest, Poseidon2Impl, Poseidon2Mix};
+    use risc0_core_v2::field::{baby_bear::BabyBear, Field};
+    use risc0_zkp_v2::core::digest::Digest;
+    use crate::translate::Translate;
+    use crate::poseidon2_injection::{Poseidon2Impl, Poseidon2Mix};
 
-    impl<T: Poseidon2Mix + Send + Sync> risc0_zkp_v2::core::hash::HashFn<risc0_core_v2::field::baby_bear::BabyBear> for Poseidon2Impl<T> {
+    impl<T: Poseidon2Mix + Send + Sync> risc0_zkp_v2::core::hash::HashFn<BabyBear> for Poseidon2Impl<T> {
         fn hash_pair(&self, a: &Digest, b: &Digest) -> Box<Digest> {
             let a = bytemuck::checked::cast_ref(a);
             let b = bytemuck::checked::cast_ref(b);
             let d = *<Self as risc0_zkp_v1::core::hash::HashFn<risc0_core_v1::field::baby_bear::BabyBear>>::hash_pair(self, a, b);
-            d.into_other().into()
+            d.translate().into()
         }
 
         fn hash_elem_slice(
@@ -235,7 +225,7 @@ mod v2 {
         ) -> Box<Digest> {
             let slice = bytemuck::checked::cast_slice(slice);
             (*<Self as risc0_zkp_v1::core::hash::HashFn<risc0_core_v1::field::baby_bear::BabyBear>>
-                ::hash_elem_slice(self, slice)).into_other().into()
+                ::hash_elem_slice(self, slice)).translate().into()
         }
 
         fn hash_ext_elem_slice(
@@ -244,7 +234,7 @@ mod v2 {
         ) -> Box<Digest> {
             let slice = bytemuck::checked::cast_slice(slice);
             (*<Self as risc0_zkp_v1::core::hash::HashFn<risc0_core_v1::field::baby_bear::BabyBear>>
-                ::hash_ext_elem_slice(self, slice)).into_other().into()
+                ::hash_ext_elem_slice(self, slice)).translate().into()
         }
     }
 }

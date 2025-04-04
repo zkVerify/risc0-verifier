@@ -15,14 +15,14 @@
 // limitations under the License.
 //
 
-pub trait CircuitCoreDef:
+pub trait CircuitCoreDefV1:
     risc0_zkp_v1::adapter::CircuitCoreDef<risc0_zkp_v1::field::baby_bear::BabyBear> + 'static
 {
 }
 
 impl<
         T: risc0_zkp_v1::adapter::CircuitCoreDef<risc0_zkp_v1::field::baby_bear::BabyBear> + 'static,
-    > CircuitCoreDef for T
+    > CircuitCoreDefV1 for T
 {
 }
 

@@ -22,10 +22,8 @@ use risc0_zkp_v1::{core::digest::Digest, verify::VerificationError};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    circuit::CircuitCoreDef,
     receipt_claim::{MaybePruned, ReceiptClaim, Unknown},
     sha::{Digestible, Sha256},
-    VerifierContext,
 };
 use succinct::SuccinctReceipt;
 
@@ -63,7 +61,7 @@ impl Proof {
     ///
     /// Parameters:
     /// - `ctx`: The verification context that identifies the prover version used to generate the proof.
-    ///   Refer to [VerifierContext] for more details.
+    ///   Refer to [V1] for more details.
     /// - `pubs`: The Risc0 Journal or a SHA digest of it.
     /// - `image_id`: The expected Risc0 image ID or its SHA digest.
     pub fn verify(

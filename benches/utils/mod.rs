@@ -21,7 +21,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use risc0_verifier::{CircuitCoreDef, Digest, Journal, Proof, VerifierContext, Vk};
+use risc0_verifier::{CircuitCoreDefV1, Digest, Journal, Proof, V1, Vk};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]

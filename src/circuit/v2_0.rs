@@ -16,15 +16,11 @@
 //
 
 use risc0_core_v2::field::baby_bear::BabyBear;
-use risc0_zkp_v1::core::digest::Digest;
-use risc0_zkp_v1::{MAX_CYCLES_PO2, MIN_CYCLES_PO2};
 use risc0_zkp_v2::{
     adapter::{CircuitCoreDef, CircuitInfo, ProtocolInfo},
     taps::TapSet,
 };
-use crate::circuit::v1_2::control_id::BLAKE2B_CONTROL_IDS;
 
-pub mod control_id;
 mod poly_ext;
 mod taps;
 
@@ -55,25 +51,6 @@ impl CircuitInfo for crate::circuit::v2_0::CircuitImpl {
 }
 
 impl CircuitCoreDef<BabyBear> for crate::circuit::v2_0::CircuitImpl {}
-
-/// Fetch a control ID with the given hash, by name, and cycle limit as a power of two (po2) from
-/// the precomputed table. If the hash function is not precomputed, or the po2 is out of range,
-/// this function will return `None`.
-///
-/// Supported values for hash_name are "sha-256", "poseidon2", and "blake2b".
-pub fn control_id(hash_name: &str, po2: usize) -> Option<Digest> {
-    if !(MIN_CYCLES_PO2..=MAX_CYCLES_PO2).contains(&po2) {
-        return None;
-    }
-    let idx = po2 - MIN_CYCLES_PO2;
-    use control_id::*;
-    match hash_name {
-        "sha-256" => Some(crate::circuit::v1_2::control_id::SHA256_CONTROL_IDS[idx]),
-        "poseidon2" => Some(crate::circuit::v1_2::control_id::POSEIDON2_CONTROL_IDS[idx]),
-        "blake2b" => Some(BLAKE2B_CONTROL_IDS[idx]),
-        _ => None,
-    }
-}
 
 pub mod recursive {
     use risc0_zkp_v2::{

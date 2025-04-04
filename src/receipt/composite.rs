@@ -27,11 +27,9 @@ use serde::{Deserialize, Serialize};
 
 use super::InnerAssumptionReceipt;
 use crate::{
-    circuit::CircuitCoreDef,
     receipt_claim::{Assumption, Output, PrunedValueError, ReceiptClaim},
     segment::SegmentReceipt,
 };
-use crate::context::VC;
 
 /// A receipt composed of one or more [SegmentReceipt] structs proving a single execution with
 /// continuations, and zero or more [InnerAssumptionReceipt](crate::InnerAssumptionReceipt) structs
@@ -122,8 +120,8 @@ impl CompositeReceipt {
             let assumption_ctx = ctx.assumption_context(&assumption);
             log::debug!("verifying assumption: {assumption:?}");
             receipt.verify_integrity_with_context(&assumption_ctx
-                .map(|c| c.dynamic())
-                .unwrap_or(ctx.dynamic()))?;
+                .map(|c| c.boxed_clone())
+                .unwrap_or(ctx.boxed_clone()))?;
             if receipt.claim_digest()? != assumption.claim {
                 log::debug!(
                     "verifying assumption failed due to claim mismatch: assumption: {assumption:?}, receipt claim digest: {}",
