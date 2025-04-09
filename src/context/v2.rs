@@ -21,7 +21,7 @@ use crate::{
     circuit, circuit::CircuitCoreDefV2, poseidon2_injection::Poseidon2Mix,
     receipt::merkle::MerkleProof, receipt::succinct::SuccinctReceiptVerifierParameters,
     receipt_claim::ReceiptClaim, segment::SegmentReceiptVerifierParameters, translate::Translate,
-    Proof, Verifier,
+    Proof,
 };
 use alloc::{boxed::Box, collections::BTreeMap, string::String};
 use risc0_binfmt_v1::{ExitCode, SystemState};
@@ -374,10 +374,6 @@ impl<SC: CircuitCoreDefV2, RC: CircuitCoreDefV2> V2<SC, RC> {
     ) -> Self {
         self.verifier_parameters.succinct_verifier_parameters = Some(params);
         self
-    }
-
-    pub fn boxed(self) -> Box<dyn Verifier> {
-        Box::new(self)
     }
 }
 

@@ -20,7 +20,7 @@ fn main() {
     divan::main();
 }
 
-use risc0_verifier::{Verifier, V1, V2};
+use risc0_verifier::{v1_2, v2_0, Verifier};
 use utils::*;
 
 mod utils;
@@ -32,7 +32,7 @@ pub mod sha {
         use super::*;
 
         fn verifier() -> impl Verifier {
-            V1::v1_2()
+            v1_2()
         }
 
         #[divan::bench]
@@ -161,7 +161,7 @@ pub mod sha {
 
 #[divan::bench]
 fn case_limit() {
-    let verifier = V1::v1_2();
+    let verifier = v1_2();
     let case: Case = read_json("resources/cases/poseidon2_22_segment_20.json").unwrap();
     let proof = read_bin(case.receipt_path).unwrap();
 
@@ -180,7 +180,7 @@ pub mod poseidon2 {
         use super::*;
 
         fn verifier() -> impl Verifier {
-            V1::v1_2()
+            v1_2()
         }
 
         #[divan::bench]
@@ -310,7 +310,7 @@ pub mod poseidon2 {
         use super::*;
 
         fn verifier() -> impl Verifier {
-            V2::v2_0()
+            v2_0()
         }
 
         #[divan::bench]
@@ -444,7 +444,7 @@ pub mod succinct {
         use super::*;
 
         fn verifier() -> impl Verifier {
-            V1::v1_2()
+            v1_2()
         }
 
         #[divan::bench]
@@ -482,7 +482,7 @@ pub mod succinct {
         use super::*;
 
         fn verifier() -> impl Verifier {
-            V2::v2_0()
+            v2_0()
         }
 
         #[divan::bench]

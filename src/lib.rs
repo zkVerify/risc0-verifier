@@ -22,7 +22,7 @@ extern crate std;
 extern crate alloc;
 extern crate core;
 
-pub use context::{v1::V1, v2::V2, SegmentInfo};
+pub use context::SegmentInfo;
 pub use key::Vk;
 pub use receipt::{
     composite::CompositeReceipt, succinct::SuccinctReceipt, InnerReceipt, Journal, Proof,
@@ -57,4 +57,24 @@ pub fn verify(
     pubs: Journal,
 ) -> Result<(), VerificationError> {
     verifier.verify(vk.0, proof, pubs)
+}
+
+/// Returns a `Verifier` for the specified RISC Zero prover 1.0 version.
+pub fn v1_0() -> impl Verifier {
+    context::v1::V1::v1_0()
+}
+
+/// Returns a `Verifier` for the specified RISC Zero prover 1.1 version.
+pub fn v1_1() -> impl Verifier {
+    context::v1::V1::v1_1()
+}
+
+/// Returns a `Verifier` for the specified RISC Zero prover 1.2 version.
+pub fn v1_2() -> impl Verifier {
+    context::v1::V1::v1_2()
+}
+
+/// Returns a `Verifier` for the specified RISC Zero prover 2.0 version.
+pub fn v2_0() -> impl Verifier {
+    context::v2::V2::v2_0()
 }

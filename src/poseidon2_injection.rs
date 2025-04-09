@@ -26,7 +26,7 @@
 //!
 //! ```
 //! # use std::path::PathBuf;
-//! # use risc0_verifier::{ Digestible, Journal, Proof,  Verifier, V1, Vk };
+//! # use risc0_verifier::{ Digestible, Journal, Proof,  Verifier, v1_2, Vk };
 //! # use serde::{ Deserialize, Serialize };
 //! # #[derive(Serialize, Deserialize)]
 //! # struct Case {
@@ -73,7 +73,7 @@
 //!     }
 //! }
 //!
-//! let mut verifier = V1::v1_2();
+//! let mut verifier = v1_2();
 //! verifier.set_poseidon2_mix_impl(Box::new(LocPoseidon2));
 //!
 //! let case: Case = read_all("./resources/cases/prover_1.2.0/vm_1.2.0/poseidon2_22.json").unwrap();
