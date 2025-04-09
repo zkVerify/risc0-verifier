@@ -275,8 +275,8 @@ fn save(outdir: impl AsRef<Path>, prover_name: &str, power: u32, receipt: Receip
 fn compute(method_elf: &[u8], opts: &ProverOpts, power: u32, segment_size: Option<u32>) -> Receipt {
     // For example:
     let cycles: u64 = match power {
-        16 => 1024 * 8,
-        17 => 1024 * 32,
+        16 => 1024 * 16,
+        17 => 1024 * 64,
         18 => 1024 * 128,
         19 => 1024 * 256,
         20 => 1024 * 256 * 3,

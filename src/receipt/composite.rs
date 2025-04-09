@@ -17,9 +17,8 @@
 //
 
 use alloc::{vec, vec::Vec};
-use risc0_binfmt::{Digestible, ExitCode};
-use risc0_zkp::{
-    adapter::PROOF_SYSTEM_INFO,
+use risc0_binfmt_v1::{Digestible, ExitCode};
+use risc0_zkp_v1::{
     core::{digest::Digest, hash::sha},
     verify::VerificationError,
 };
@@ -28,11 +27,9 @@ use serde::{Deserialize, Serialize};
 
 use super::InnerAssumptionReceipt;
 use crate::{
-    circuit::CircuitCoreDef,
-    receipt::succinct::SuccinctReceiptVerifierParameters,
+    context::VerifierContext,
     receipt_claim::{Assumption, Output, PrunedValueError, ReceiptClaim},
     segment::SegmentReceipt,
-    VerifierContext,
 };
 
 /// A receipt composed of one or more [SegmentReceipt] structs proving a single execution with
@@ -61,9 +58,9 @@ pub struct CompositeReceipt {
 impl CompositeReceipt {
     /// Verify the integrity of this receipt, ensuring the claim is attested
     /// to by the seal.
-    pub fn verify_integrity_with_context<SC: CircuitCoreDef, RC: CircuitCoreDef>(
+    pub fn verify_integrity_with_context(
         &self,
-        ctx: &VerifierContext<SC, RC>,
+        ctx: &impl VerifierContext,
     ) -> Result<(), VerificationError> {
         log::debug!("CompositeReceipt::verify_integrity_with_context");
         // Verify the continuation, by verifying every segment receipt in order.
@@ -76,7 +73,7 @@ impl CompositeReceipt {
         // Verify each segment and its chaining to the next.
         let mut expected_pre_state_digest = None;
         for receipt in receipts {
-            receipt.verify_integrity_with_context::<SC, RC>(ctx)?;
+            receipt.verify_integrity_with_context(ctx)?;
             let claim = &receipt.claim;
             log::debug!("claim: {:#?}", claim);
             if let Some(id) = expected_pre_state_digest {
@@ -121,23 +118,13 @@ impl CompositeReceipt {
             return Err(VerificationError::ReceiptFormatError);
         }
         for (assumption, receipt) in assumptions.into_iter().zip(self.assumption_receipts.iter()) {
-            let assumption_ctx = match assumption.control_root {
-                // If the control root is all zeroes, we should use the same verifier parameters.
-                Digest::ZERO => None,
-                // Otherwise, we should verify the assumption receipt using the guest-provided root.
-                control_root => Some(
-                    VerifierContext::empty(ctx.circuit, ctx.recursive_circuit)
-                        .with_suites(ctx.suites.clone())
-                        .with_succinct_verifier_parameters(SuccinctReceiptVerifierParameters {
-                            control_root,
-                            inner_control_root: None,
-                            proof_system_info: PROOF_SYSTEM_INFO,
-                            circuit_info: RC::CIRCUIT_INFO,
-                        }),
-                ),
-            };
+            let assumption_ctx = ctx.assumption_context(&assumption);
             log::debug!("verifying assumption: {assumption:?}");
-            receipt.verify_integrity_with_context(assumption_ctx.as_ref().unwrap_or(ctx))?;
+            receipt.verify_integrity_with_context(
+                &assumption_ctx
+                    .map(|c| c.boxed_clone())
+                    .unwrap_or(ctx.boxed_clone()),
+            )?;
             if receipt.claim_digest()? != assumption.claim {
                 log::debug!(
                     "verifying assumption failed due to claim mismatch: assumption: {assumption:?}, receipt claim digest: {}",

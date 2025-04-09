@@ -16,7 +16,7 @@
 // limitations under the License.
 //
 
-use risc0_zkp::{
+use risc0_zkp_v1::{
     adapter::{MixState, PolyExt, PolyExtStep, PolyExtStepDef},
     field::baby_bear::{BabyBear, BabyBearElem, BabyBearExtElem},
 };

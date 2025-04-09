@@ -50,11 +50,11 @@
 //! assert_eq!(hash_hash, hash_hash_words);
 //! ```
 
-pub use risc0_zkp::core::{digest::Digest, hash::sha::Sha256};
+pub use risc0_zkp_v1::core::{digest::Digest, hash::sha::Sha256};
 
 // This Impl selects the appropriate implementation of SHA-256 depending on whether we are
 // in the zkVM guest. Users can simply `use risc0_zkvm::sha::Impl`.
-pub use risc0_zkp::core::hash::sha::Impl;
+pub use risc0_zkp_v1::core::hash::sha::Impl;
 
 /// Defines a collision resistant hash for the typed and structured data.
 pub trait Digestible {
@@ -62,7 +62,7 @@ pub trait Digestible {
     fn digest(&self) -> Digest;
 }
 
-impl<D: ?Sized + risc0_binfmt::Digestible> Digestible for D {
+impl<D: ?Sized + risc0_binfmt_v1::Digestible> Digestible for D {
     /// Calculate a collision resistant hash for the typed and structured data.
     fn digest(&self) -> Digest {
         self.digest::<Impl>()

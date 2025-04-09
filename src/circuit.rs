@@ -15,13 +15,25 @@
 // limitations under the License.
 //
 
-pub trait CircuitCoreDef:
-    risc0_zkp::adapter::CircuitCoreDef<risc0_zkp::field::baby_bear::BabyBear> + 'static
+pub trait CircuitCoreDefV1:
+    risc0_zkp_v1::adapter::CircuitCoreDef<risc0_zkp_v1::field::baby_bear::BabyBear> + 'static
 {
 }
 
-impl<T: risc0_zkp::adapter::CircuitCoreDef<risc0_zkp::field::baby_bear::BabyBear> + 'static>
-    CircuitCoreDef for T
+impl<
+        T: risc0_zkp_v1::adapter::CircuitCoreDef<risc0_zkp_v1::field::baby_bear::BabyBear> + 'static,
+    > CircuitCoreDefV1 for T
+{
+}
+
+pub trait CircuitCoreDefV2:
+    risc0_zkp_v2::adapter::CircuitCoreDef<risc0_zkp_v2::field::baby_bear::BabyBear> + 'static
+{
+}
+
+impl<
+        T: risc0_zkp_v2::adapter::CircuitCoreDef<risc0_zkp_v2::field::baby_bear::BabyBear> + 'static,
+    > CircuitCoreDefV2 for T
 {
 }
 
@@ -30,3 +42,4 @@ pub mod v1_0;
 pub mod v1_1;
 
 pub mod v1_2;
+pub mod v2_0;

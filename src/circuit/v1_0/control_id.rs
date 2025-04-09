@@ -16,10 +16,10 @@
 // limitations under the License.
 //
 
-use risc0_zkp::core::digest::Digest;
-use risc0_zkp::digest;
+use risc0_zkp_v1::core::digest::Digest;
+use risc0_zkp_v1::digest;
 
-const CONTROL_ID_ENTRIES: usize = risc0_zkp::MAX_CYCLES_PO2 - risc0_zkp::MIN_CYCLES_PO2;
+const CONTROL_ID_ENTRIES: usize = risc0_zkp_v1::MAX_CYCLES_PO2 - risc0_zkp_v1::MIN_CYCLES_PO2;
 
 pub type ControlIds = [Digest; CONTROL_ID_ENTRIES];
 

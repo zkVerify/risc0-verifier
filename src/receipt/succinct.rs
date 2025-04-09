@@ -19,9 +19,9 @@
 use alloc::{collections::VecDeque, string::String, vec::Vec};
 use core::fmt::Debug;
 
-use risc0_binfmt::{read_sha_halfs, tagged_struct, Digestible};
-use risc0_core::field::baby_bear::BabyBearElem;
-use risc0_zkp::{
+use risc0_binfmt_v1::{read_sha_halfs, tagged_struct, Digestible};
+use risc0_core_v1::field::baby_bear::BabyBearElem;
+use risc0_zkp_v1::{
     adapter::{CircuitInfo, ProtocolInfo, PROOF_SYSTEM_INFO},
     core::{digest::Digest, hash::sha::Sha256},
     verify::VerificationError,
@@ -30,10 +30,11 @@ use risc0_zkp::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    circuit::CircuitCoreDef,
-    receipt::{merkle::MerkleProof, VerifierContext},
+    context::VerifierContext,
+    receipt::merkle::MerkleProof,
     receipt_claim::{MaybePruned, Unknown},
     sha,
+    translate::Translate,
 };
 
 /// A succinct receipt, produced via recursion, proving the execution of the zkVM with a [STARK].
@@ -84,13 +85,13 @@ where
 {
     /// Verify the integrity of this receipt, ensuring the claim is attested
     /// to by the seal.
-    pub fn verify_integrity_with_context<SC: CircuitCoreDef, RC: CircuitCoreDef>(
+    pub fn verify_integrity_with_context(
         &self,
-        ctx: &VerifierContext<SC, RC>,
+        ctx: &impl VerifierContext,
     ) -> Result<(), VerificationError> {
         let params = ctx
-            .succinct_verifier_parameters
-            .as_ref()
+            .verifier_parameters()
+            .succinct_verifier_parameters()
             .ok_or(VerificationError::VerifierParametersMissing)?;
 
         // Check that the proof system and circuit info strings match what is implemented by this
@@ -102,42 +103,26 @@ where
                 received: params.proof_system_info,
             });
         }
-        if params.circuit_info != RC::CIRCUIT_INFO {
+        if params.circuit_info != ctx.succinct_circuit_info() {
             return Err(VerificationError::CircuitInfoMismatch {
-                expected: RC::CIRCUIT_INFO,
+                expected: ctx.succinct_circuit_info(),
                 received: params.circuit_info,
             });
         }
 
-        let suite = ctx
-            .suites
-            .get(&self.hashfn)
-            .ok_or(VerificationError::InvalidHashSuite)?;
-
-        let check_code = |_, control_id: &Digest| -> Result<(), VerificationError> {
-            self.control_inclusion_proof
-                .verify(control_id, &params.control_root, suite.hashfn.as_ref())
-                .map_err(|_| {
-                    log::debug!(
-                        "failed to verify control inclusion proof for {control_id} against root {} with {}",
-                        params.control_root,
-                        suite.name,
-                    );
-                    VerificationError::ControlVerificationError {
-                        control_id: *control_id,
-                    }
-                })
-        };
-
         // Verify the receipt itself is correct, and therefore the encoded globals are
         // reliable.
-        risc0_zkp::verify::verify(ctx.recursive_circuit, suite, &self.seal, check_code)?;
+        ctx.verify_succinct(
+            self.hashfn.as_str(),
+            &self.seal,
+            &self.control_inclusion_proof,
+            params,
+        )?;
 
         // Extract the globals from the seal
-        let output_elems: &[BabyBearElem] =
-            bytemuck::checked::cast_slice(&self.seal[..RC::OUTPUT_SIZE]);
+        let output_elems: &[BabyBearElem] = bytemuck::checked::cast_slice(&self.seal);
         let mut seal_claim = VecDeque::new();
-        for elem in output_elems {
+        for elem in output_elems.iter().take(ctx.succinct_output_size()) {
             seal_claim.push_back(elem.as_u32())
         }
 
@@ -272,6 +257,22 @@ impl SuccinctReceiptVerifierParameters {
             circuit_info: circuit::CircuitImpl::CIRCUIT_INFO,
         }
     }
+
+    /// v2_0 set of parameters used to verify a [SuccinctReceipt].
+    pub fn v2_0() -> Self {
+        use crate::circuit::v2_0::recursive as circuit;
+
+        Self {
+            // ALLOWED_CONTROL_ROOT is a precalculated version of the control root, as calculated
+            // by the allowed_control_root function above.
+            control_root: circuit::control_id::ALLOWED_CONTROL_ROOT.translate(),
+            inner_control_root: None,
+            proof_system_info: PROOF_SYSTEM_INFO,
+            circuit_info:
+                <circuit::CircuitImpl as risc0_zkp_v2::adapter::CircuitInfo>::CIRCUIT_INFO
+                    .translate(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -279,7 +280,7 @@ mod tests {
 
     use super::SuccinctReceiptVerifierParameters;
     use crate::sha::Digestible;
-    use risc0_zkp::core::digest::{digest, Digest};
+    use risc0_zkp_v1::core::digest::{digest, Digest};
     use rstest::rstest;
 
     // Check that the verifier parameters has a stable digest (and therefore a stable value). This
