@@ -1,10 +1,10 @@
 {
-  "receipt_path": "./resources/receipts/single_full_segment/poseidon2_16.bin",
+  "receipt_path": "./resources/receipts/single_full_segment_v1/poseidon2_21.bin",
   "journal": {
     "bytes": [
-      14,
-      32,
       0,
+      0,
+      28,
       0,
       0,
       0,

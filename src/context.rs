@@ -15,80 +15,191 @@
 // limitations under the License.
 //
 
-use crate::poseidon2_injection::Poseidon2Mix;
+use crate::receipt_claim::ReceiptClaim;
 use crate::{
-    circuit::{self, CircuitCoreDef},
-    receipt::succinct::SuccinctReceiptVerifierParameters,
-    segment::SegmentReceiptVerifierParameters,
-    CompositeReceipt, Digestible, Journal, Proof,
+    poseidon2_injection::Poseidon2Mix, receipt::merkle::MerkleProof,
+    receipt::succinct::SuccinctReceiptVerifierParameters, receipt_claim::Assumption,
+    segment::SegmentReceiptVerifierParameters, Proof,
 };
-use alloc::{collections::BTreeMap, string::String};
-use risc0_core::field::baby_bear::BabyBearElem;
-use risc0_zkp::core::digest::Digest;
-use risc0_zkp::verify::{ReadIOP, VerificationError};
-use risc0_zkp::{
-    core::hash::{
-        blake2b::Blake2bCpuHashSuite, poseidon2::Poseidon2HashSuite, sha::Sha256HashSuite,
-        HashSuite,
-    },
-    field::baby_bear::BabyBear,
-};
+use alloc::{boxed::Box, collections::BTreeMap, string::String};
+use risc0_zkp_v1::{adapter::ProtocolInfo, core::digest::Digest, verify::VerificationError};
 
-/// Context available to the verification process. The context contains
-/// all the info necessary to verify the proofs there are some
-/// preconfigured context configurations to fit the risc0 vm versions.
-///
-/// The risc0 vm versions `1.x` are not interchangeable that means if had
-/// generated a proof with the `1.1.x` risc0 version, you can verify it only
-/// with the `1.1.y` circuit version and so you should use [`VerifierContext::v1_1()`],
-/// any other context, even if it has a greater version, will fail to verify the proof.
-///
-/// So, `VerifierContext` defines a new constructor for each risc0 minor version
-/// to have the right context for any risc0 incompatible vm version.
-///
-#[non_exhaustive]
-pub struct VerifierContext<SC: CircuitCoreDef, RC: CircuitCoreDef> {
+pub mod v1;
+pub mod v2;
+
+pub struct VerifierParameters<Segment, Succinct, HashSuite> {
+    /// Parameters for verification of [SuccinctReceipt].
+    pub succinct_verifier_parameters: Option<SuccinctReceiptVerifierParameters>,
     /// A registry of hash functions to be used by the verification process.
-    pub suites: BTreeMap<String, HashSuite<BabyBear>>,
-
+    pub suites: BTreeMap<String, HashSuite>,
     /// Parameters for verification of [SegmentReceipt].
     pub segment_verifier_parameters: Option<SegmentReceiptVerifierParameters>,
 
-    /// Parameters for verification of [SuccinctReceipt].
-    pub succinct_verifier_parameters: Option<SuccinctReceiptVerifierParameters>,
+    pub segment: Segment,
 
-    pub circuit: &'static SC,
-
-    pub recursive_circuit: &'static RC,
+    pub succinct: Succinct,
 }
 
-impl VerifierContext<circuit::v1_0::CircuitImpl, circuit::v1_0::recursive::CircuitImpl> {
-    /// Create an empty [VerifierContext] for any risc0 proof generate for any `1.0.x` vm version.
-    pub fn v1_0() -> Self {
-        Self::empty(&circuit::v1_0::CIRCUIT, &circuit::v1_0::recursive::CIRCUIT)
-            .with_suites(Self::default_hash_suites())
-            .with_segment_verifier_parameters(SegmentReceiptVerifierParameters::v1_0())
-            .with_succinct_verifier_parameters(SuccinctReceiptVerifierParameters::v1_0())
+impl<Segment: CircuitInfo, Succinct: CircuitInfo, HashSuite>
+    VerifierParameters<Segment, Succinct, HashSuite>
+{
+    pub fn segment_verifier_parameters(&self) -> Option<&SegmentReceiptVerifierParameters> {
+        self.segment_verifier_parameters.as_ref()
+    }
+
+    pub fn succinct_verifier_parameters(&self) -> Option<&SuccinctReceiptVerifierParameters> {
+        self.succinct_verifier_parameters.as_ref()
+    }
+
+    pub fn suite(&self, hashfn: &str) -> Option<&HashSuite> {
+        self.suites.get(hashfn)
     }
 }
 
-impl VerifierContext<circuit::v1_1::CircuitImpl, circuit::v1_1::recursive::CircuitImpl> {
-    /// Create an empty [VerifierContext] for any risc0 proof generate for any `1.1.x` vm version.
-    pub fn v1_1() -> Self {
-        Self::empty(&circuit::v1_1::CIRCUIT, &circuit::v1_1::recursive::CIRCUIT)
-            .with_suites(Self::default_hash_suites())
-            .with_segment_verifier_parameters(SegmentReceiptVerifierParameters::v1_1())
-            .with_succinct_verifier_parameters(SuccinctReceiptVerifierParameters::v1_1())
-    }
+pub trait CircuitInfo {
+    fn protocol(&self) -> ProtocolInfo;
+    fn size(&self) -> usize;
 }
 
-impl VerifierContext<circuit::v1_2::CircuitImpl, circuit::v1_2::recursive::CircuitImpl> {
-    /// Create an empty [VerifierContext] for any risc0 proof generate for any `1.2.x` vm version.
-    pub fn v1_2() -> Self {
-        Self::empty(&circuit::v1_2::CIRCUIT, &circuit::v1_2::recursive::CIRCUIT)
-            .with_suites(Self::default_hash_suites())
-            .with_segment_verifier_parameters(SegmentReceiptVerifierParameters::v1_2())
-            .with_succinct_verifier_parameters(SuccinctReceiptVerifierParameters::v1_2())
+pub type BoxedVC<S> = Box<
+    dyn VerifierContext<
+        Segment = <S as VerifierContext>::Segment,
+        Succinct = <S as VerifierContext>::Succinct,
+        HashSuite = <S as VerifierContext>::HashSuite,
+    >,
+>;
+
+pub trait VerifierContext {
+    type HashSuite;
+    type Segment: CircuitInfo;
+    type Succinct: CircuitInfo;
+
+    fn verifier_parameters(
+        &self,
+    ) -> &VerifierParameters<Self::Segment, Self::Succinct, Self::HashSuite>;
+
+    fn mut_verifier_parameters(
+        &mut self,
+    ) -> &mut VerifierParameters<Self::Segment, Self::Succinct, Self::HashSuite>;
+    fn boxed_clone(&self) -> BoxedVC<Self>;
+
+    fn boxed_succinct_verifier_with_control_root(&self, control_root: Digest) -> BoxedVC<Self>;
+
+    fn assumption_context(&self, assumption: &Assumption) -> Option<BoxedVC<Self>> {
+        match assumption.control_root {
+            // If the control root is all zeroes, we should use the same verifier parameters.
+            Digest::ZERO => None,
+            // Otherwise, we should verify the assumption receipt using the guest-provided root.
+            control_root => Some(self.boxed_succinct_verifier_with_control_root(control_root)),
+        }
+    }
+
+    fn segment_circuit_info(&self) -> ProtocolInfo {
+        self.verifier_parameters().segment.protocol()
+    }
+    fn succinct_circuit_info(&self) -> ProtocolInfo {
+        self.verifier_parameters().succinct.protocol()
+    }
+    fn succinct_output_size(&self) -> usize {
+        self.verifier_parameters().succinct.size()
+    }
+
+    fn decode_from_seal(&self, seal: &[u32]) -> Result<ReceiptClaim, VerificationError>;
+
+    fn verify_segment(
+        &self,
+        hashfn: &str,
+        seal: &[u32],
+        params: &SegmentReceiptVerifierParameters,
+    ) -> Result<(), VerificationError>;
+    fn verify_succinct(
+        &self,
+        hashfn: &str,
+        seal: &[u32],
+        control_inclusion_proof: &MerkleProof,
+        params: &SuccinctReceiptVerifierParameters,
+    ) -> Result<(), VerificationError>;
+
+    fn is_valid_receipt(&self, _proof: &Proof) -> bool {
+        true
+    }
+
+    fn segment_seal_offset(&self) -> usize;
+
+    fn set_poseidon2_mix_impl(&mut self, poseidon2: Box<dyn Poseidon2Mix + Send + Sync + 'static>);
+}
+
+impl<Seg: CircuitInfo, Suc: CircuitInfo, T> VerifierContext
+    for Box<dyn VerifierContext<Segment = Seg, Succinct = Suc, HashSuite = T> + 'static>
+{
+    type HashSuite = T;
+    type Segment = Seg;
+    type Succinct = Suc;
+
+    fn verifier_parameters(&self) -> &VerifierParameters<Seg, Suc, T> {
+        self.as_ref().verifier_parameters()
+    }
+
+    fn mut_verifier_parameters(
+        &mut self,
+    ) -> &mut VerifierParameters<Self::Segment, Self::Succinct, Self::HashSuite> {
+        self.as_mut().mut_verifier_parameters()
+    }
+
+    fn boxed_clone(&self) -> BoxedVC<Self> {
+        self.as_ref().boxed_clone()
+    }
+    fn boxed_succinct_verifier_with_control_root(&self, control_root: Digest) -> BoxedVC<Self> {
+        self.as_ref()
+            .boxed_succinct_verifier_with_control_root(control_root)
+    }
+
+    fn assumption_context(&self, assumption: &Assumption) -> Option<BoxedVC<Self>> {
+        self.as_ref().assumption_context(assumption)
+    }
+
+    fn segment_circuit_info(&self) -> ProtocolInfo {
+        self.as_ref().segment_circuit_info()
+    }
+
+    fn succinct_circuit_info(&self) -> ProtocolInfo {
+        self.as_ref().succinct_circuit_info()
+    }
+
+    fn succinct_output_size(&self) -> usize {
+        self.as_ref().succinct_output_size()
+    }
+
+    fn decode_from_seal(&self, seal: &[u32]) -> Result<ReceiptClaim, VerificationError> {
+        self.as_ref().decode_from_seal(seal)
+    }
+
+    fn verify_segment(
+        &self,
+        hashfn: &str,
+        seal: &[u32],
+        params: &SegmentReceiptVerifierParameters,
+    ) -> Result<(), VerificationError> {
+        self.as_ref().verify_segment(hashfn, seal, params)
+    }
+
+    fn verify_succinct(
+        &self,
+        hashfn: &str,
+        seal: &[u32],
+        control_inclusion_proof: &MerkleProof,
+        params: &SuccinctReceiptVerifierParameters,
+    ) -> Result<(), VerificationError> {
+        self.as_ref()
+            .verify_succinct(hashfn, seal, control_inclusion_proof, params)
+    }
+
+    fn segment_seal_offset(&self) -> usize {
+        self.as_ref().segment_seal_offset()
+    }
+
+    fn set_poseidon2_mix_impl(&mut self, poseidon2: Box<dyn Poseidon2Mix + Send + Sync + 'static>) {
+        self.as_mut().set_poseidon2_mix_impl(poseidon2)
     }
 }
 
@@ -105,170 +216,5 @@ impl SegmentInfo {
     /// Create a new segment-info
     pub fn new(hash: String, po2: u32) -> Self {
         Self { hash, po2 }
-    }
-}
-
-/// Dynamic verifier trait. It's implemented by all verifier context and can be
-/// used with dynamic dispatching. Expose just the functionalities that can be
-/// dispatched dynamically.
-///
-pub trait Verifier {
-    /// Verify the proof against this verifier context, the given `image_id` and journal.
-    fn verify(
-        &self,
-        image_id: Digest,
-        proof: Proof,
-        pubs: Journal,
-    ) -> Result<(), VerificationError>;
-    fn extract_composite_segments_info(
-        &self,
-        composite: &CompositeReceipt,
-    ) -> Result<alloc::vec::Vec<SegmentInfo>, VerificationError> {
-        composite
-            .segments
-            .iter()
-            .map(|s| {
-                self.extract_segment_po2(s.seal.as_slice(), s.hashfn.as_str())
-                    .map(|po2| SegmentInfo {
-                        hash: s.hashfn.clone(),
-                        po2,
-                    })
-            })
-            .collect()
-    }
-
-    fn suites(&self) -> &BTreeMap<String, HashSuite<BabyBear>>;
-
-    fn set_suites(&mut self, suites: BTreeMap<String, HashSuite<BabyBear>>);
-
-    fn set_poseidon2_mix_impl(
-        &mut self,
-        poseidon2: alloc::boxed::Box<dyn Poseidon2Mix + Send + Sync + 'static>,
-    );
-
-    fn extract_segment_po2(&self, seal: &[u32], hash: &str) -> Result<u32, VerificationError>;
-}
-
-impl<SC: CircuitCoreDef, RC: CircuitCoreDef> Verifier for VerifierContext<SC, RC> {
-    fn verify(
-        &self,
-        image_id: Digest,
-        proof: Proof,
-        journal: Journal,
-    ) -> Result<(), VerificationError> {
-        proof.verify(self, image_id, journal.digest())
-    }
-
-    fn suites(&self) -> &BTreeMap<String, HashSuite<BabyBear>> {
-        &self.suites
-    }
-
-    fn set_suites(&mut self, suites: BTreeMap<String, HashSuite<BabyBear>>) {
-        self.suites = suites;
-    }
-    fn set_poseidon2_mix_impl(
-        &mut self,
-        poseidon2: alloc::boxed::Box<dyn Poseidon2Mix + Send + Sync + 'static>,
-    ) {
-        Self::set_poseidon2_mix_impl(self, poseidon2)
-    }
-
-    fn extract_segment_po2(&self, seal: &[u32], hash: &str) -> Result<u32, VerificationError> {
-        let suite = self
-            .suites
-            .get(hash)
-            .ok_or(VerificationError::InvalidHashSuite)?;
-        // Make IOP
-        let mut iop = ReadIOP::<BabyBear>::new(seal, suite.rng.as_ref());
-        let slice: &[BabyBearElem] = iop.read_field_elem_slice(SC::OUTPUT_SIZE + 1);
-        let (_, &[po2_elem]) = slice.split_at(SC::OUTPUT_SIZE) else {
-            unreachable!()
-        };
-        use risc0_zkp::field::Elem;
-        let (&[po2], &[]) = po2_elem.to_u32_words().split_at(1) else {
-            // That means BabyBear field is more than one u32
-            core::panic!("po2 elem is larger than u32");
-        };
-        Ok(po2)
-    }
-}
-
-impl Verifier for alloc::boxed::Box<dyn Verifier> {
-    fn verify(
-        &self,
-        image_id: Digest,
-        proof: Proof,
-        journal: Journal,
-    ) -> Result<(), VerificationError> {
-        self.as_ref().verify(image_id, proof, journal)
-    }
-
-    fn suites(&self) -> &BTreeMap<String, HashSuite<BabyBear>> {
-        self.as_ref().suites()
-    }
-
-    fn set_suites(&mut self, suites: BTreeMap<String, HashSuite<BabyBear>>) {
-        self.as_mut().set_suites(suites);
-    }
-
-    fn set_poseidon2_mix_impl(
-        &mut self,
-        poseidon2: alloc::boxed::Box<dyn Poseidon2Mix + Send + Sync + 'static>,
-    ) {
-        self.as_mut().set_poseidon2_mix_impl(poseidon2)
-    }
-
-    fn extract_segment_po2(&self, seal: &[u32], hash: &str) -> Result<u32, VerificationError> {
-        self.as_ref().extract_segment_po2(seal, hash)
-    }
-}
-
-impl<SC: CircuitCoreDef, RC: CircuitCoreDef> VerifierContext<SC, RC> {
-    /// Create an empty [VerifierContext].
-    pub fn empty(circuit: &'static SC, recursive_circuit: &'static RC) -> Self {
-        Self {
-            suites: BTreeMap::default(),
-            segment_verifier_parameters: None,
-            succinct_verifier_parameters: None,
-            circuit,
-            recursive_circuit,
-        }
-    }
-
-    /// Return the mapping of hash suites used in the default [VerifierContext].
-    pub fn default_hash_suites() -> BTreeMap<String, HashSuite<BabyBear>> {
-        BTreeMap::from([
-            ("blake2b".into(), Blake2bCpuHashSuite::new_suite()),
-            ("poseidon2".into(), Poseidon2HashSuite::new_suite()),
-            ("sha-256".into(), Sha256HashSuite::new_suite()),
-        ])
-    }
-
-    /// Return [VerifierContext] with the given map of hash suites.
-    pub fn with_suites(mut self, suites: BTreeMap<String, HashSuite<BabyBear>>) -> Self {
-        self.suites = suites;
-        self
-    }
-
-    /// Return [VerifierContext] with the given [SegmentReceiptVerifierParameters] set.
-    pub fn with_segment_verifier_parameters(
-        mut self,
-        params: SegmentReceiptVerifierParameters,
-    ) -> Self {
-        self.segment_verifier_parameters = Some(params);
-        self
-    }
-
-    /// Return [VerifierContext] with the given [SuccinctReceiptVerifierParameters] set.
-    pub fn with_succinct_verifier_parameters(
-        mut self,
-        params: SuccinctReceiptVerifierParameters,
-    ) -> Self {
-        self.succinct_verifier_parameters = Some(params);
-        self
-    }
-
-    pub fn boxed(self) -> alloc::boxed::Box<dyn Verifier> {
-        alloc::boxed::Box::new(self)
     }
 }

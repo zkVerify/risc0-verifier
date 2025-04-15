@@ -16,8 +16,8 @@
 // limitations under the License.
 //
 
-use risc0_zkp::core::digest::Digest;
-use risc0_zkp::digest;
+use risc0_zkp_v1::core::digest::Digest;
+use risc0_zkp_v1::digest;
 
 /// Smallest cycle limit, as a power of two (po2), supported as a lift program.
 pub const MIN_LIFT_PO2: usize = 14;

@@ -98,7 +98,10 @@ command = "cargo"
 args = ["machete"]
 
 [tasks.ci-common]
-dependencies = ["build", "build-bare-metal", "test", "build-convert", "build-host-generate-proofs", "clippy", "audit",
+# Removed build-bare-metal till the `risc0-circuit-rv32im@2.0.2`'s risc0 issue is not fixed
+# dependencies = ["build", "build-bare-metal", "test", "build-convert", "build-host-generate-proofs", "clippy", "audit",
+#    "udeps"]
+dependencies = ["build", "test", "build-convert", "build-host-generate-proofs", "clippy", "audit",
     "udeps"]
 
 [tasks.ci]

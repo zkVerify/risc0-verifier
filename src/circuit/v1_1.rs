@@ -15,14 +15,14 @@
 // limitations under the License.
 //
 
-use risc0_core::field::baby_bear::BabyBear;
-use risc0_zkp::core::digest::Digest;
+use risc0_core_v1::field::baby_bear::BabyBear;
+use risc0_zkp_v1::core::digest::Digest;
 
-use risc0_zkp::{
+use risc0_zkp_v1::{
     adapter::{CircuitCoreDef, CircuitInfo, ProtocolInfo},
     taps::TapSet,
 };
-use risc0_zkp::{MAX_CYCLES_PO2, MIN_CYCLES_PO2};
+use risc0_zkp_v1::{MAX_CYCLES_PO2, MIN_CYCLES_PO2};
 
 pub mod control_id;
 mod poly_ext;
@@ -38,7 +38,7 @@ impl CircuitImpl {
     }
 }
 
-impl risc0_zkp::adapter::TapsProvider for CircuitImpl {
+impl risc0_zkp_v1::adapter::TapsProvider for CircuitImpl {
     fn get_taps(&self) -> &'static TapSet<'static> {
         taps::TAPSET
     }
@@ -77,7 +77,7 @@ pub fn control_id(hash_name: &str, po2: usize) -> Option<Digest> {
 }
 
 pub mod recursive {
-    use risc0_zkp::{
+    use risc0_zkp_v1::{
         adapter::{CircuitCoreDef, CircuitInfo, ProtocolInfo, TapsProvider},
         field::baby_bear::BabyBear,
         taps::TapSet,
