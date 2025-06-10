@@ -2,7 +2,7 @@
 
 A `no-std` verifier for [RISC-Zero](https://github.com/risc0/risc0) STARK proofs.
 
-**Disclaimer**: Due a little issue on upstream `risc0-circuit-rv32im@2.0.2` crate this crate is not _strictly_ 
+**Disclaimer**: Due a little issue on upstream `risc0-circuit-rv32im@2.0.x` crate this crate is not _strictly_ 
 `no-std` because transitively include `bit-vec` without gates out `std` feature. So, it's not possible to compile this 
 crate for a general bare metal target like `thumbv7em-none-eabi` but it works on lots of others no std environments. 
 We have temporarily disabled the CI checks till the upstream issue is not fixed.

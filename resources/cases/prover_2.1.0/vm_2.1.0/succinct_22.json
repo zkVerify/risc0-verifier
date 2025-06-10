@@ -1,5 +1,5 @@
 {
-  "receipt_path": "./resources/receipts/single_full_segment_v2/poseidon2_22.bin",
+  "receipt_path": "./resources/receipts/2.1.0-2.1.0/succinct_22.bin",
   "journal": {
     "bytes": [
       0,

@@ -266,6 +266,9 @@ impl SuccinctReceiptVerifierParameters {
             // ALLOWED_CONTROL_ROOT is a precalculated version of the control root, as calculated
             // by the allowed_control_root function above.
             control_root: circuit::control_id::ALLOWED_CONTROL_ROOT.translate(),
+            // control_root: circuit::allowed_control_root("poseidon2", risc0_zkp_v2::MAX_CYCLES_PO2)
+            //     .expect("Should never fail. qed")
+            //     .translate(),
             inner_control_root: None,
             proof_system_info: PROOF_SYSTEM_INFO,
             circuit_info:
