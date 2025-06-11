@@ -1,5 +1,7 @@
 // Copyright Copyright 2024, Horizen Labs, Inc.
-// Copyright 2025 RISC Zero, Inc.
+// Copyright Copyright 2025 RISC Zero, Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,8 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-// This code is automatically generated
+//
 
 use risc0_zkp_v2::taps::{TapData, TapSet};
 

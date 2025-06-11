@@ -21,7 +21,7 @@ use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts, Receipt, DEFAULT_MAX_P
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 #[derive(Copy, Clone, ValueEnum, Debug)]
 enum Prover {
@@ -50,7 +50,10 @@ impl Prover {
 
     fn opts(&self) -> ProverOpts {
         match self {
-            Prover::Sha => ProverOpts::fast(),
+            Prover::Sha => {
+                warn!("From risc0 2.1.0 just poseidon was supported, it'll use poseidon2 instead");
+                ProverOpts::fast()
+            },
             Prover::Poseidon2 => ProverOpts::default(),
             Prover::Succinct => ProverOpts::succinct(),
         }

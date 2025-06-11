@@ -14,8 +14,8 @@
 // limitations under the License.
 
 use risc0_verifier::{
-    v1_0, v1_1, v1_2, v2_1, verify, CompositeReceipt, Journal, Proof, SegmentInfo, SuccinctReceipt,
-    Verifier, Vk,
+    v1_0, v1_1, v1_2, v2_0, v2_1, verify, CompositeReceipt, Journal, Proof, SegmentInfo,
+    SuccinctReceipt, Verifier, Vk,
 };
 use risc0_zkp_v1::verify::VerificationError;
 use rstest::rstest;
@@ -250,6 +250,40 @@ mod v1_2 {
     }
 }
 
+mod v2_0 {
+    use super::*;
+
+    #[rstest]
+    #[case::should_pass(v2_0())]
+    #[should_panic]
+    #[case::should_fails_with_old_verifier(v1_2().boxed())]
+    fn verify_valid_proof(
+        #[case] verifier: impl Verifier,
+        #[files("./resources/cases/prover_2.0.*/**/*.json")] path: PathBuf,
+    ) {
+        let case: Case = read_all(path).unwrap();
+
+        let proof = case.get_proof().unwrap();
+
+        verifier
+            .verify(case.vk.into(), proof, case.journal)
+            .unwrap()
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid receipt format")]
+    fn should_reject_sha2_proofs() {
+        let verifier = v2_0();
+        let case: Case =
+            read_all("./resources/cases/reject/prover_2.0.0/vm_2.0.0/sha_16.json").unwrap();
+        let proof = case.get_proof().unwrap();
+
+        verifier
+            .verify(case.vk.into(), proof, case.journal)
+            .unwrap()
+    }
+}
+
 mod v2_1 {
     use super::*;
 
@@ -263,19 +297,6 @@ mod v2_1 {
     ) {
         let case: Case = read_all(path).unwrap();
 
-        let proof = case.get_proof().unwrap();
-
-        verifier
-            .verify(case.vk.into(), proof, case.journal)
-            .unwrap()
-    }
-
-    #[test]
-    #[should_panic]
-    fn should_reject_sha2_proofs() {
-        let verifier = v2_1();
-        let case: Case =
-            read_all("./resources/cases/reject/prover_2.1.0/vm_2.1.0/sha_16.json").unwrap();
         let proof = case.get_proof().unwrap();
 
         verifier

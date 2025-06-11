@@ -377,8 +377,18 @@ impl<SC: CircuitCoreDefV2, RC: CircuitCoreDefV2> V2<SC, RC> {
     }
 }
 
-impl V2<circuit::v2_1::CircuitImpl, circuit::v2_1::recursive::CircuitImpl> {
+impl V2<circuit::v2_0::CircuitImpl, circuit::v2_0::recursive::CircuitImpl> {
     /// Create an empty [V2] for any risc0 proof generate for any `2.0.x` vm version.
+    pub fn v2_0() -> Self {
+        Self::empty(&circuit::v2_0::CIRCUIT, &circuit::v2_0::recursive::CIRCUIT)
+            .with_suites(Self::default_hash_suites())
+            .with_segment_verifier_parameters(SegmentReceiptVerifierParameters::v2_0())
+            .with_succinct_verifier_parameters(SuccinctReceiptVerifierParameters::v2_0())
+    }
+}
+
+impl V2<circuit::v2_1::CircuitImpl, circuit::v2_1::recursive::CircuitImpl> {
+    /// Create an empty [V2] for any risc0 proof generate for any `2.1.x` vm version.
     pub fn v2_1() -> Self {
         Self::empty(&circuit::v2_1::CIRCUIT, &circuit::v2_1::recursive::CIRCUIT)
             .with_suites(Self::default_hash_suites())
