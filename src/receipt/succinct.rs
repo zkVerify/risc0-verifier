@@ -258,9 +258,9 @@ impl SuccinctReceiptVerifierParameters {
         }
     }
 
-    /// v2_0 set of parameters used to verify a [SuccinctReceipt].
-    pub fn v2_0() -> Self {
-        use crate::circuit::v2_0::recursive as circuit;
+    /// v2_1 set of parameters used to verify a [SuccinctReceipt].
+    pub fn v2_1() -> Self {
+        use crate::circuit::v2_1::recursive as circuit;
 
         Self {
             // ALLOWED_CONTROL_ROOT is a precalculated version of the control root, as calculated

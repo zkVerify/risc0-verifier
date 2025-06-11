@@ -25,7 +25,7 @@ use crate::{
 };
 use alloc::{boxed::Box, collections::BTreeMap, string::String};
 use risc0_binfmt_v1::{ExitCode, SystemState};
-use risc0_circuit_rv32im_v2::{CircuitImpl, RV32IM_SEAL_VERSION};
+use risc0_circuit_rv32im_v2::RV32IM_SEAL_VERSION;
 use risc0_core_v1::field::baby_bear::BabyBear;
 use risc0_zkp_v1::{
     adapter::{ProtocolInfo, PROOF_SYSTEM_INFO},
@@ -58,7 +58,7 @@ impl<SC: CircuitCoreDefV2, RC: CircuitCoreDefV2> VerifierContext for V2<SC, RC> 
 
     fn boxed_succinct_verifier_with_control_root(&self, control_root: Digest) -> BoxedVC<Self> {
         Box::new(
-            V2::empty(&circuit::v2_0::CIRCUIT, &circuit::v2_0::recursive::CIRCUIT)
+            V2::empty(&circuit::v2_1::CIRCUIT, &circuit::v2_1::recursive::CIRCUIT)
                 .with_suites(self.verifier_parameters.suites.clone())
                 .with_succinct_verifier_parameters(SuccinctReceiptVerifierParameters {
                     control_root,
@@ -105,7 +105,7 @@ impl<SC: CircuitCoreDefV2, RC: CircuitCoreDefV2> VerifierContext for V2<SC, RC> 
 
         let seal = &seal[1..];
 
-        risc0_zkp_v2::verify::verify(&CircuitImpl, suite, seal, check_code_fn)
+        risc0_zkp_v2::verify::verify(self.circuit, suite, seal, check_code_fn)
             .map_err(Translate::translate)
     }
 
@@ -141,7 +141,7 @@ impl<SC: CircuitCoreDefV2, RC: CircuitCoreDefV2> VerifierContext for V2<SC, RC> 
 
         // Verify the receipt itself is correct, and therefore the encoded globals are
         // reliable.
-        risc0_zkp_v2::verify::verify(&circuit::v2_0::recursive::CIRCUIT, suite, seal, check_code)
+        risc0_zkp_v2::verify::verify(self.recursive_circuit, suite, seal, check_code)
             .map_err(Translate::translate)
     }
 
@@ -226,10 +226,10 @@ pub struct SegmentV2;
 
 impl crate::context::CircuitInfo for SegmentV2 {
     fn protocol(&self) -> ProtocolInfo {
-        <circuit::v2_0::CircuitImpl as risc0_zkp_v2::adapter::CircuitInfo>::CIRCUIT_INFO.translate()
+        <circuit::v2_1::CircuitImpl as risc0_zkp_v2::adapter::CircuitInfo>::CIRCUIT_INFO.translate()
     }
     fn size(&self) -> usize {
-        <circuit::v2_0::CircuitImpl as risc0_zkp_v2::adapter::CircuitInfo>::OUTPUT_SIZE
+        <circuit::v2_1::CircuitImpl as risc0_zkp_v2::adapter::CircuitInfo>::OUTPUT_SIZE
     }
 }
 
@@ -238,11 +238,11 @@ pub struct SuccinctV2;
 
 impl crate::context::CircuitInfo for SuccinctV2 {
     fn protocol(&self) -> ProtocolInfo {
-        <circuit::v2_0::recursive::CircuitImpl as risc0_zkp_v2::adapter::CircuitInfo>::CIRCUIT_INFO
+        <circuit::v2_1::recursive::CircuitImpl as risc0_zkp_v2::adapter::CircuitInfo>::CIRCUIT_INFO
             .translate()
     }
     fn size(&self) -> usize {
-        <circuit::v2_0::recursive::CircuitImpl as risc0_zkp_v2::adapter::CircuitInfo>::OUTPUT_SIZE
+        <circuit::v2_1::recursive::CircuitImpl as risc0_zkp_v2::adapter::CircuitInfo>::OUTPUT_SIZE
     }
 }
 
@@ -377,12 +377,12 @@ impl<SC: CircuitCoreDefV2, RC: CircuitCoreDefV2> V2<SC, RC> {
     }
 }
 
-impl V2<circuit::v2_0::CircuitImpl, circuit::v2_0::recursive::CircuitImpl> {
+impl V2<circuit::v2_1::CircuitImpl, circuit::v2_1::recursive::CircuitImpl> {
     /// Create an empty [V2] for any risc0 proof generate for any `2.0.x` vm version.
     pub fn v2_1() -> Self {
-        Self::empty(&circuit::v2_0::CIRCUIT, &circuit::v2_0::recursive::CIRCUIT)
+        Self::empty(&circuit::v2_1::CIRCUIT, &circuit::v2_1::recursive::CIRCUIT)
             .with_suites(Self::default_hash_suites())
-            .with_segment_verifier_parameters(SegmentReceiptVerifierParameters::v2_0())
-            .with_succinct_verifier_parameters(SuccinctReceiptVerifierParameters::v2_0())
+            .with_segment_verifier_parameters(SegmentReceiptVerifierParameters::v2_1())
+            .with_succinct_verifier_parameters(SuccinctReceiptVerifierParameters::v2_1())
     }
 }

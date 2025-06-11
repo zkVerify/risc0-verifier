@@ -163,11 +163,11 @@ impl SegmentReceiptVerifierParameters {
         )
     }
 
-    /// v2.0 set of parameters used to verify a [SegmentReceipt].
-    pub fn v2_0() -> Self {
+    /// v2.1 set of parameters used to verify a [SegmentReceipt].
+    pub fn v2_1() -> Self {
         use risc0_zkp_v2::adapter::{CircuitInfo, PROOF_SYSTEM_INFO};
         let p_info = ProtocolInfo(PROOF_SYSTEM_INFO.0);
-        let circuit = ProtocolInfo(crate::circuit::v2_0::CircuitImpl::CIRCUIT_INFO.0);
+        let circuit = ProtocolInfo(crate::circuit::v2_1::CircuitImpl::CIRCUIT_INFO.0);
         fn fake_control_id(_hash_name: &str, _po2: usize) -> Option<Digest> {
             None
         }
