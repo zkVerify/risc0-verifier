@@ -18,6 +18,7 @@
 
 use crate::{context::VerifierContext, receipt::DEFAULT_MAX_PO2, receipt_claim::ReceiptClaim, sha};
 use alloc::{collections::BTreeSet, string::String, vec::Vec};
+use core::marker::PhantomData;
 use risc0_binfmt_v1::{tagged_iter, tagged_struct, Digestible};
 use risc0_zkp_v1::{
     adapter::{ProtocolInfo, PROOF_SYSTEM_INFO},
@@ -163,15 +164,27 @@ impl SegmentReceiptVerifierParameters {
         )
     }
 
-    /// v2.0 set of parameters used to verify a [SegmentReceipt].
-    pub fn v2_0() -> Self {
-        use risc0_zkp_v2::adapter::{CircuitInfo, PROOF_SYSTEM_INFO};
+    fn v2_x<C: risc0_zkp_v2::adapter::CircuitInfo>(_circuit_info: PhantomData<C>) -> Self {
         let p_info = ProtocolInfo(PROOF_SYSTEM_INFO.0);
-        let circuit = ProtocolInfo(crate::circuit::v2_0::CircuitImpl::CIRCUIT_INFO.0);
         fn fake_control_id(_hash_name: &str, _po2: usize) -> Option<Digest> {
             None
         }
-        Self::from_max_po2(&fake_control_id, DEFAULT_MAX_PO2, p_info, circuit)
+        Self::from_max_po2(
+            &fake_control_id,
+            DEFAULT_MAX_PO2,
+            p_info,
+            ProtocolInfo(C::CIRCUIT_INFO.0),
+        )
+    }
+
+    /// v2.1 set of parameters used to verify a [SegmentReceipt].
+    pub fn v2_0() -> Self {
+        Self::v2_x::<crate::circuit::v2_0::CircuitImpl>(Default::default())
+    }
+
+    /// v2.1 set of parameters used to verify a [SegmentReceipt].
+    pub fn v2_1() -> Self {
+        Self::v2_x::<crate::circuit::v2_1::CircuitImpl>(Default::default())
     }
 
     fn from_max_po2(

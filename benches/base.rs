@@ -20,7 +20,7 @@ fn main() {
     divan::main();
 }
 
-use risc0_verifier::{v1_2, v2_0, Verifier};
+use risc0_verifier::{v1_2, v2_1, Verifier};
 use utils::*;
 
 mod utils;
@@ -306,18 +306,18 @@ pub mod poseidon2 {
         }
     }
 
-    mod v_2_0 {
+    mod v_2_1 {
         use super::*;
 
         fn verifier() -> impl Verifier {
-            v2_0()
+            v2_1()
         }
 
         #[divan::bench]
         fn verify_16() {
             let verifier = verifier();
             let case: Case =
-                read_json("resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_16.json").unwrap();
+                read_json("resources/cases/prover_2.1.0/vm_2.1.0/poseidon2_16.json").unwrap();
             let proof = read_bin(case.receipt_path).unwrap();
 
             compute(
@@ -332,7 +332,7 @@ pub mod poseidon2 {
         fn verify_22() {
             let verifier = verifier();
             let case: Case =
-                read_json("resources/cases/prover_2.0.0/vm_2.0.0/poseidon2_22.json").unwrap();
+                read_json("resources/cases/prover_2.1.0/vm_2.1.0/poseidon2_22.json").unwrap();
             let proof = read_bin(case.receipt_path).unwrap();
 
             compute(
@@ -478,18 +478,18 @@ pub mod succinct {
         }
     }
 
-    mod v_2_0 {
+    mod v_2_1 {
         use super::*;
 
         fn verifier() -> impl Verifier {
-            v2_0()
+            v2_1()
         }
 
         #[divan::bench]
         fn verify_16() {
             let verifier = verifier();
             let case: Case =
-                read_json("resources/cases/prover_2.0.0/vm_2.0.0/succinct_16.json").unwrap();
+                read_json("resources/cases/prover_2.1.0/vm_2.1.0/succinct_16.json").unwrap();
             let proof = read_bin(case.receipt_path).unwrap();
 
             compute(
@@ -504,7 +504,7 @@ pub mod succinct {
         fn verify_22() {
             let verifier = verifier();
             let case: Case =
-                read_json("resources/cases/prover_2.0.0/vm_2.0.0/succinct_22.json").unwrap();
+                read_json("resources/cases/prover_2.1.0/vm_2.1.0/succinct_22.json").unwrap();
             let proof = read_bin(case.receipt_path).unwrap();
 
             compute(

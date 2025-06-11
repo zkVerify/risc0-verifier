@@ -22,7 +22,7 @@ The steps are:
 7. Replace the circuit that relay on risc0 crates with a one that use the code
   on this project by copy all needed data from the mainstream sources.
 
-For the rest of this tutorial we're considering that risc0 **1.3.0** has released,
+For the rest of this tutorial we're considering that risc0 **2.1.0** has released,
 and we should implement it.
 
 ## Compile the code using last release
@@ -30,10 +30,10 @@ and we should implement it.
 This step is the one with more _uncertain_ because some interfaces or values that we
 used can be changed or moved in some other place: in this case you'll need to go a
 little in deep and try to understand what's changed and how to port this changes. Don't
-be scared because that changes was never dramatics.
+be scared because that changes was never dramatic.
 
-To change the dependencies just go in `Cargo.toml` and for each `risc0-*` crate change
-the `version = "=1.2.0"` refence into `version = "=1.3.0"`. Just check the project with
+To change the dependencies, go in `Cargo.toml` and for each `risc0-*` crate change
+the `version = "=1.1.0"` reference into `version = "=1.3.0"`. Check the project with
 
 ```sh
 cargo make ci
@@ -54,21 +54,22 @@ exposing these needs.
 
 To do it we should move in the `generate_proofs` folder and
 
-1. Create a new method that use the new vm 1.3.0
+1. Create a new method that uses the new vm 1.3.0
 2. Generate the proof with the proofs for this new method with the new prover 1.3.0
 3. Create the test cases
 4. _Optional_: Generate the proofs for the old vm methods with the new prover
 5. _Optional_: Generate the proofs for the new vm method with the old provers
 
-The points 3 and 4 are not strictly necessary in the first stage where we would implement the
-new circuit but is better to complete them in order to have a complete matrix coverage.
+Points 4 and 5 are not strictly necessary in the first stage where we would implement the
+new circuit, but it is better to complete them to have a complete matrix coverage.
 
 ### Create a `1.3.0` vm method
 
 In `notes.md` you could find all useful information about how to create a specific
-method and prover version. Anyway we'll report them briefly.
+method and prover version.
+Anyway, we'll report them briefly.
 
-In order to make the following scripts coherent export the `NEW_VERSION` env variable:
+To make the following scripts coherently export the `NEW_VERSION` env variable:
 
 ```sh
 export NEW_VERSION="1.3.0";
@@ -95,11 +96,14 @@ do
 done
 ```
 
-The previous step is only necesseray if the version you're using is not the last one, otherwise
+The previous step is only necessary if the version you're using is not the last one, otherwise
 the changes in `Cargo.toml` are enough.
 
-If you don't have `cargo-risczero` command please install it. Now to compile it
-from `generate_proofs` you can just do
+If you don't have `cargo-risczero` command please install it and take care of the version that should be the same of 
+the version for which you want to create the method. Use the command `rzup` for installing risc0 toolchain: `rzup install`
+install the latest.
+
+Now to compile it from `generate_proofs` you can just do
 
 ```sh
 cargo risczero build --manifest-path methods/guest/Cargo.toml
@@ -120,6 +124,8 @@ mkdir host/method-${NEW_VERSION}
 echo "90ef9a7e6df4e68df51665c69eb497339fd6b1f1f9698846ec4922bea777c422" > host/method-${NEW_VERSION}/info.txt
 cp target/riscv-guest/riscv32im-risc0-zkvm-elf/docker/method/method host/method-${NEW_VERSION}/
 ```
+
+**Alert**: from version 2.0 the binary is moved in `target/riscv-guest/riscv32im-risc0-zkvm-elf/docker/method.bin` file.
 
 ### Generate the proofs for 1.3.0 version
 

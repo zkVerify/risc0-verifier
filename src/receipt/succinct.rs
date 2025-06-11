@@ -263,8 +263,20 @@ impl SuccinctReceiptVerifierParameters {
         use crate::circuit::v2_0::recursive as circuit;
 
         Self {
-            // ALLOWED_CONTROL_ROOT is a precalculated version of the control root, as calculated
-            // by the allowed_control_root function above.
+            control_root: circuit::control_id::ALLOWED_CONTROL_ROOT.translate(),
+            inner_control_root: None,
+            proof_system_info: PROOF_SYSTEM_INFO,
+            circuit_info:
+                <circuit::CircuitImpl as risc0_zkp_v2::adapter::CircuitInfo>::CIRCUIT_INFO
+                    .translate(),
+        }
+    }
+
+    /// v2_1 set of parameters used to verify a [SuccinctReceipt].
+    pub fn v2_1() -> Self {
+        use crate::circuit::v2_1::recursive as circuit;
+
+        Self {
             control_root: circuit::control_id::ALLOWED_CONTROL_ROOT.translate(),
             inner_control_root: None,
             proof_system_info: PROOF_SYSTEM_INFO,
