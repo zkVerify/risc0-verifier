@@ -54,8 +54,8 @@ mod legacy {
         let Data { vk, proof, pubs } =
             serde_json::from_reader(std::fs::File::open(path).unwrap()).unwrap();
 
-        let proof = <Vec<u8>>::try_from(hex::decode(proof).unwrap()).unwrap();
-        let pubs = <Vec<u8>>::try_from(hex::decode(pubs).unwrap()).unwrap();
+        let proof = hex::decode(proof).unwrap();
+        let pubs = hex::decode(pubs).unwrap();
 
         (vk, proof, pubs)
     }
@@ -162,7 +162,7 @@ fn read_po2_segments(
 
     let expected = expected
         .1
-        .into_iter()
+        .iter()
         .map(|&po2| SegmentInfo::new(expected.0.to_owned(), po2))
         .collect::<Vec<_>>();
 
@@ -181,7 +181,6 @@ fn read_po2_segments_case_limit_segments(#[case] verifier: impl Verifier, #[case
         .unwrap();
 
     let expected = (0..4)
-        .into_iter()
         .map(|_| SegmentInfo::new("poseidon2".to_owned(), 20))
         .collect::<Vec<_>>();
     assert_eq!(expected, po2s)
@@ -408,7 +407,7 @@ fn fails_on_invalid_segment(
     let res = verifier.verify(case.vk.into(), proof, case.journal);
 
     assert!(res.is_err());
-    assert!(matches!(res, Err(VerificationError::InvalidProof { .. })));
+    assert!(matches!(res, Err(VerificationError::InvalidProof)));
 }
 
 #[rstest_reuse::apply(succinct)]
@@ -423,7 +422,7 @@ fn fails_on_invalid_succinct(#[case] verifier: impl Verifier, #[case] path: &str
     let res = verifier.verify(case.vk.into(), proof, case.journal);
 
     assert!(res.is_err());
-    assert!(matches!(res, Err(VerificationError::InvalidProof { .. })));
+    assert!(matches!(res, Err(VerificationError::InvalidProof)));
 }
 
 #[rstest_reuse::apply(all)]
@@ -431,11 +430,9 @@ fn fails_on_invalid_vk(#[case] verifier: impl Verifier, #[case] path: &str) {
     let mut case: Case = read_all(path).unwrap();
     let proof = case.get_proof().unwrap();
 
-    case.vk
-        .0
-        .as_mut_words()
-        .last_mut()
-        .map(|l| *l = l.wrapping_add(1));
+    if let Some(l) = case.vk.0.as_mut_words().last_mut() {
+        *l = l.wrapping_add(1);
+    }
 
     let res = verifier.verify(case.vk.into(), proof, case.journal);
 
@@ -451,10 +448,9 @@ fn fails_on_invalid_pubs(#[case] verifier: impl Verifier, #[case] path: &str) {
     let mut case: Case = read_all(path).unwrap();
     let proof = case.get_proof().unwrap();
 
-    case.journal
-        .bytes
-        .last_mut()
-        .map(|l| *l = l.wrapping_add(1));
+    if let Some(l) = case.journal.bytes.last_mut() {
+        *l = l.wrapping_add(1);
+    }
 
     let res = verifier.verify(case.vk.into(), proof, case.journal);
 
@@ -488,9 +484,9 @@ fn fails_on_invalid_inner_control_root(#[case] mut verifier: impl Verifier, #[ca
     let case: Case = read_all(path).unwrap();
     let proof = case.get_proof().unwrap();
 
-    verifier
-        .mut_succinct_verifier_parameters()
-        .map(|p| p.inner_control_root = Some(risc0_verifier::Digest::ZERO));
+    if let Some(p) = verifier.mut_succinct_verifier_parameters() {
+        p.inner_control_root = Some(risc0_verifier::Digest::ZERO);
+    }
 
     let res = verifier.verify(case.vk.into(), proof, case.journal);
 
@@ -513,7 +509,7 @@ fn fails_on_invalid_succinct_claim(#[case] verifier: impl Verifier, #[case] path
 
     assert!(res.is_err());
     assert!(
-        matches!(res, Err(VerificationError::JournalDigestMismatch { .. })),
+        matches!(res, Err(VerificationError::JournalDigestMismatch)),
         "Invalid err {res:?}"
     );
 }
