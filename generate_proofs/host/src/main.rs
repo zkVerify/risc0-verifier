@@ -85,6 +85,10 @@ struct Cli {
     #[arg(short='2', long, value_name = "PO2", default_values_t = vec![16, 22])]
     po2: Vec<u32>,
 
+    /// If present, remove some cycles from the computed from power of 2
+    #[arg(short, long, value_name = "REMOVE_CYCLES")]
+    remove_cycles: Option<u64>,
+
     /// If is true is trying to create a single proof with a single segment
     #[arg(short, long, default_value = "false")]
     no_continuation: bool,
@@ -171,6 +175,7 @@ fn main() {
     debug!("Provers: {:?}", cli.provers);
     debug!("Enabled continuation {}", !cli.no_continuation);
     debug!("Segment size {:?}", cli.segment_size);
+    debug!("Removed cycle {:?}", cli.remove_cycles);
     for power in &cli.po2 {
         for prover in &cli.provers {
             let prover_name = prover.as_str();
@@ -182,7 +187,8 @@ fn main() {
                 cli.segment_size
             };
             let prover_opts = prover.opts();
-            let receipt = compute(&method_elf, &prover_opts, *power, segment_size);
+            let cycles = cycles(*power) - cli.remove_cycles.unwrap_or_default();
+            let receipt = compute(&method_elf, &prover_opts, cycles, segment_size);
             let elapsed = start.elapsed().as_millis();
             let output: u32 = receipt.journal.decode().unwrap();
             info!("============= output = {output}  in {elapsed}ms =============");
@@ -275,9 +281,8 @@ fn save(outdir: impl AsRef<Path>, prover_name: &str, power: u32, receipt: Receip
     serde_json::to_writer_pretty(json_inner_receipt, &receipt.inner).unwrap();
 }
 
-fn compute(method_elf: &[u8], opts: &ProverOpts, power: u32, segment_size: Option<u32>) -> Receipt {
-    // For example:
-    let cycles: u64 = match power {
+fn cycles(power: u32) -> u64 {
+    match power {
         16 => 1024 * 16,
         17 => 1024 * 64,
         18 => 1024 * 128,
@@ -287,9 +292,11 @@ fn compute(method_elf: &[u8], opts: &ProverOpts, power: u32, segment_size: Optio
         22 => 1024 * 256 * 15,
         23 => 1024 * 256 * 31,
         24 => 1024 * 256 * 63,
-        _ => panic!("Unsupported"),
-    };
+        _ => panic!("Unsupported power of two: {power}"),
+    }
+}
 
+fn compute(method_elf: &[u8], opts: &ProverOpts, cycles: u64, segment_size: Option<u32>) -> Receipt {
     debug!("Cycles : {cycles}");
 
     let mut builder = ExecutorEnv::builder();
