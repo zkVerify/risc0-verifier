@@ -75,7 +75,7 @@ impl CompositeReceipt {
         for receipt in receipts {
             receipt.verify_integrity_with_context(ctx)?;
             let claim = &receipt.claim;
-            log::debug!("claim: {:#?}", claim);
+            log::debug!("claim: {claim:#?}");
             if let Some(id) = expected_pre_state_digest {
                 if id != claim.pre.digest::<sha::Impl>() {
                     return Err(VerificationError::ImageVerificationError);
