@@ -121,9 +121,7 @@ The resulting binary at `./target/release/convert_old` can convert both `Proof` 
 
 ```sh
 ./target/release/convert_old --help
-```
 
-```
 Usage: convert_old [-x] [-X] [-j] [-i <input>] [-o <output>]
 
 Perform conversion.
