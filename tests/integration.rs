@@ -14,8 +14,8 @@
 // limitations under the License.
 
 use risc0_verifier::{
-    v1_0, v1_1, v1_2, v2_0, v2_1, v2_2, verify, CompositeReceipt, Journal, Proof, SegmentInfo,
-    SuccinctReceipt, Verifier, Vk,
+    v1_0, v1_1, v1_2, v2_0, v2_1, v2_2, v2_3, verify, CompositeReceipt, Journal, Proof,
+    SegmentInfo, SuccinctReceipt, Verifier, Vk,
 };
 use risc0_zkp_v1::verify::VerificationError;
 use rstest::rstest;
@@ -325,6 +325,27 @@ mod v2_2 {
     }
 }
 
+mod v2_3 {
+    use super::*;
+
+    #[rstest]
+    #[case::should_pass(v2_3())]
+    #[should_panic]
+    #[case::should_fails_with_old_verifier(v2_1().boxed())]
+    fn verify_valid_proof(
+        #[case] verifier: impl Verifier,
+        #[files("./resources/cases/prover_2.3.*/**/*.json")] path: PathBuf,
+    ) {
+        let case: Case = read_all(path).unwrap();
+
+        let proof = case.get_proof().unwrap();
+
+        verifier
+            .verify(case.vk.into(), proof, case.journal)
+            .unwrap()
+    }
+}
+
 mod use_custom_local_implemented_hash_function {
     use super::*;
 
@@ -545,6 +566,7 @@ fn fails_on_invalid_succinct_claim(#[case] verifier: impl Verifier, #[case] path
 #[case::sha_proof_v1_2(v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/sha_22.json")]
 #[case::poseidon_proof_v2_1(v2_1(), "./resources/cases/prover_2.1.0/vm_2.1.0/poseidon2_22.json")]
 #[case::poseidon_proof_v2_2(v2_2(), "./resources/cases/prover_2.2.0/vm_2.2.0/poseidon2_22.json")]
+#[case::poseidon_proof_v2_3(v2_3(), "./resources/cases/prover_2.3.0/vm_2.3.0/poseidon2_22.json")]
 fn segments(#[case] verifier: impl Verifier, #[case] path: &str) {}
 
 #[rstest_reuse::template]
@@ -554,6 +576,7 @@ fn segments(#[case] verifier: impl Verifier, #[case] path: &str) {}
 #[case::succinct_proof_v1_2(v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/succinct_22.json")]
 #[case::succinct_proof_v2_1(v2_1(), "./resources/cases/prover_2.1.0/vm_2.1.0/succinct_22.json")]
 #[case::succinct_proof_v2_2(v2_2(), "./resources/cases/prover_2.2.0/vm_2.2.0/succinct_22.json")]
+#[case::succinct_proof_v2_3(v2_3(), "./resources/cases/prover_2.3.0/vm_2.3.0/succinct_22.json")]
 fn succinct(#[case] verifier: impl Verifier, #[case] path: &str) {}
 
 #[rstest_reuse::template]
@@ -566,11 +589,13 @@ fn succinct(#[case] verifier: impl Verifier, #[case] path: &str) {}
 #[case::sha_proof_v1_2(v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/sha_22.json")]
 #[case::poseidon_proof_v2_1(v2_1(), "./resources/cases/prover_2.1.0/vm_2.1.0/poseidon2_22.json")]
 #[case::poseidon_proof_v2_2(v2_2(), "./resources/cases/prover_2.2.0/vm_2.2.0/poseidon2_22.json")]
+#[case::poseidon_proof_v2_3(v2_3(), "./resources/cases/prover_2.3.0/vm_2.3.0/poseidon2_22.json")]
 #[case::succinct_proof_v1_0(v1_0(), "./resources/cases/prover_1.0.3/vm_1.0.5/succinct_22.json")]
 #[case::succinct_proof_v1_1(v1_1(), "./resources/cases/prover_1.1.3/vm_1.1.3/succinct_22.json")]
 #[case::succinct_proof_v1_2(v1_2(), "./resources/cases/prover_1.2.0/vm_1.2.0/succinct_22.json")]
 #[case::succinct_proof_v2_1(v2_1(), "./resources/cases/prover_2.1.0/vm_2.1.0/succinct_22.json")]
 #[case::succinct_proof_v2_2(v2_2(), "./resources/cases/prover_2.2.0/vm_2.2.0/succinct_22.json")]
+#[case::succinct_proof_v2_3(v2_3(), "./resources/cases/prover_2.3.0/vm_2.3.0/succinct_22.json")]
 fn all(#[case] verifier: impl Verifier, #[case] path: &str) {}
 
 fn read_all<T: DeserializeOwned>(path: impl AsRef<Path>) -> anyhow::Result<T> {
