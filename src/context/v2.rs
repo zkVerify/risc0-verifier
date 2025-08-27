@@ -406,3 +406,13 @@ impl V2<circuit::v2_2::CircuitImpl, circuit::v2_2::recursive::CircuitImpl> {
             .with_succinct_verifier_parameters(SuccinctReceiptVerifierParameters::v2_2())
     }
 }
+
+impl V2<circuit::v2_3::CircuitImpl, circuit::v2_3::recursive::CircuitImpl> {
+    /// Create an empty [V2] for any risc0 proof generate for any `2.3.x` vm version.
+    pub fn v2_3() -> Self {
+        Self::empty(&circuit::v2_3::CIRCUIT, &circuit::v2_3::recursive::CIRCUIT)
+            .with_suites(Self::default_hash_suites())
+            .with_segment_verifier_parameters(SegmentReceiptVerifierParameters::v2_3())
+            .with_succinct_verifier_parameters(SuccinctReceiptVerifierParameters::v2_3())
+    }
+}
