@@ -37,6 +37,17 @@ impl<
 {
 }
 
+pub trait CircuitCoreDefV3:
+    risc0_zkp_v3::adapter::CircuitCoreDef<risc0_zkp_v3::field::baby_bear::BabyBear> + 'static
+{
+}
+
+impl<
+        T: risc0_zkp_v3::adapter::CircuitCoreDef<risc0_zkp_v3::field::baby_bear::BabyBear> + 'static,
+    > CircuitCoreDefV3 for T
+{
+}
+
 pub mod v1_0;
 
 pub mod v1_1;
@@ -50,3 +61,5 @@ pub mod v2_1;
 pub mod v2_2;
 
 pub mod v2_3;
+
+pub mod v3_0;
