@@ -26,6 +26,7 @@ use risc0_zkp_v1::{adapter::ProtocolInfo, core::digest::Digest, verify::Verifica
 
 pub mod v1;
 pub mod v2;
+pub mod v3;
 
 pub struct VerifierParameters<Segment, Succinct, HashSuite> {
     /// Parameters for verification of [SuccinctReceipt].

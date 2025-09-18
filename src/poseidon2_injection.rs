@@ -220,25 +220,60 @@ mod v2 {
             let d = *<Self as risc0_zkp_v1::core::hash::HashFn<
                 risc0_core_v1::field::baby_bear::BabyBear,
             >>::hash_pair(self, a, b);
-            d.translate().into()
+            Translate::<Digest>::translate(d).into()
         }
 
         fn hash_elem_slice(&self, slice: &[<BabyBear as Field>::Elem]) -> Box<Digest> {
             let slice = bytemuck::checked::cast_slice(slice);
-            (*<Self as risc0_zkp_v1::core::hash::HashFn<
+            let d = *<Self as risc0_zkp_v1::core::hash::HashFn<
                 risc0_core_v1::field::baby_bear::BabyBear,
-            >>::hash_elem_slice(self, slice))
-            .translate()
-            .into()
+            >>::hash_elem_slice(self, slice);
+            Translate::<Digest>::translate(d).into()
         }
 
         fn hash_ext_elem_slice(&self, slice: &[<BabyBear as Field>::ExtElem]) -> Box<Digest> {
             let slice = bytemuck::checked::cast_slice(slice);
-            (*<Self as risc0_zkp_v1::core::hash::HashFn<
+            let d = *<Self as risc0_zkp_v1::core::hash::HashFn<
                 risc0_core_v1::field::baby_bear::BabyBear,
-            >>::hash_ext_elem_slice(self, slice))
-            .translate()
-            .into()
+            >>::hash_ext_elem_slice(self, slice);
+            Translate::<Digest>::translate(d).into()
+        }
+    }
+}
+
+mod v3 {
+    use crate::poseidon2_injection::{Poseidon2Impl, Poseidon2Mix};
+    use crate::translate::Translate;
+    use alloc::boxed::Box;
+    use risc0_core_v3::field::{baby_bear::BabyBear, Field};
+    use risc0_zkp_v3::core::digest::Digest;
+
+    impl<T: Poseidon2Mix + Send + Sync> risc0_zkp_v3::core::hash::HashFn<BabyBear>
+        for Poseidon2Impl<T>
+    {
+        fn hash_pair(&self, a: &Digest, b: &Digest) -> Box<Digest> {
+            let a = bytemuck::checked::cast_ref(a);
+            let b = bytemuck::checked::cast_ref(b);
+            let d = *<Self as risc0_zkp_v1::core::hash::HashFn<
+                risc0_core_v1::field::baby_bear::BabyBear,
+            >>::hash_pair(self, a, b);
+            Translate::<Digest>::translate(d).into()
+        }
+
+        fn hash_elem_slice(&self, slice: &[<BabyBear as Field>::Elem]) -> Box<Digest> {
+            let slice = bytemuck::checked::cast_slice(slice);
+            let d = *<Self as risc0_zkp_v1::core::hash::HashFn<
+                risc0_core_v1::field::baby_bear::BabyBear,
+            >>::hash_elem_slice(self, slice);
+            Translate::<Digest>::translate(d).into()
+        }
+
+        fn hash_ext_elem_slice(&self, slice: &[<BabyBear as Field>::ExtElem]) -> Box<Digest> {
+            let slice = bytemuck::checked::cast_slice(slice);
+            let d = *<Self as risc0_zkp_v1::core::hash::HashFn<
+                risc0_core_v1::field::baby_bear::BabyBear,
+            >>::hash_ext_elem_slice(self, slice);
+            Translate::<Digest>::translate(d).into()
         }
     }
 }

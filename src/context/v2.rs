@@ -32,6 +32,7 @@ use risc0_zkp_v1::{
     core::digest::Digest,
     verify::VerificationError,
 };
+use risc0_zkp_v2::adapter::CircuitInfo;
 
 impl<SC: CircuitCoreDefV2, RC: CircuitCoreDefV2> VerifierContext for V2<SC, RC> {
     type HashSuite = HashSuiteV2;
@@ -70,11 +71,11 @@ impl<SC: CircuitCoreDefV2, RC: CircuitCoreDefV2> VerifierContext for V2<SC, RC> 
     }
 
     fn segment_circuit_info(&self) -> ProtocolInfo {
-        ProtocolInfo(*b"RV32IM:v2_______")
+        circuit::v2_0::CircuitImpl::CIRCUIT_INFO.translate()
     }
 
     fn succinct_circuit_info(&self) -> ProtocolInfo {
-        ProtocolInfo(*b"RECURSION:rev1v1")
+        circuit::v2_0::recursive::CircuitImpl::CIRCUIT_INFO.translate()
     }
 
     fn succinct_output_size(&self) -> usize {
@@ -352,13 +353,13 @@ impl<SC: CircuitCoreDefV2, RC: CircuitCoreDefV2> V2<SC, RC> {
         ])
     }
 
-    /// Return [V1] with the given map of hash suites.
+    /// Return [V2] with the given map of hash suites.
     pub fn with_suites(mut self, suites: BTreeMap<String, HashSuiteV2>) -> Self {
         self.verifier_parameters.suites = suites;
         self
     }
 
-    /// Return [V1] with the given [SegmentReceiptVerifierParameters] set.
+    /// Return [V2] with the given [SegmentReceiptVerifierParameters] set.
     pub fn with_segment_verifier_parameters(
         mut self,
         params: SegmentReceiptVerifierParameters,
@@ -367,7 +368,7 @@ impl<SC: CircuitCoreDefV2, RC: CircuitCoreDefV2> V2<SC, RC> {
         self
     }
 
-    /// Return [V1] with the given [SuccinctReceiptVerifierParameters] set.
+    /// Return [V2] with the given [SuccinctReceiptVerifierParameters] set.
     pub fn with_succinct_verifier_parameters(
         mut self,
         params: SuccinctReceiptVerifierParameters,

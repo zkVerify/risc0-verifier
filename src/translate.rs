@@ -35,6 +35,18 @@ impl Translate<risc0_zkp_v2::core::digest::Digest> for risc0_zkp_v1::core::diges
     }
 }
 
+impl Translate<risc0_zkp_v1::core::digest::Digest> for risc0_zkp_v3::core::digest::Digest {
+    fn translate(self) -> risc0_zkp_v1::core::digest::Digest {
+        self.as_words().try_into().unwrap()
+    }
+}
+
+impl Translate<risc0_zkp_v3::core::digest::Digest> for risc0_zkp_v1::core::digest::Digest {
+    fn translate(self) -> risc0_zkp_v3::core::digest::Digest {
+        self.as_words().try_into().unwrap()
+    }
+}
+
 impl Translate<risc0_zkp_v2::adapter::ProtocolInfo> for risc0_zkp_v1::adapter::ProtocolInfo {
     fn translate(self) -> risc0_zkp_v2::adapter::ProtocolInfo {
         risc0_zkp_v2::adapter::ProtocolInfo(self.0)
@@ -42,6 +54,18 @@ impl Translate<risc0_zkp_v2::adapter::ProtocolInfo> for risc0_zkp_v1::adapter::P
 }
 
 impl Translate<risc0_zkp_v1::adapter::ProtocolInfo> for risc0_zkp_v2::adapter::ProtocolInfo {
+    fn translate(self) -> risc0_zkp_v1::adapter::ProtocolInfo {
+        risc0_zkp_v1::adapter::ProtocolInfo(self.0)
+    }
+}
+
+impl Translate<risc0_zkp_v3::adapter::ProtocolInfo> for risc0_zkp_v1::adapter::ProtocolInfo {
+    fn translate(self) -> risc0_zkp_v3::adapter::ProtocolInfo {
+        risc0_zkp_v3::adapter::ProtocolInfo(self.0)
+    }
+}
+
+impl Translate<risc0_zkp_v1::adapter::ProtocolInfo> for risc0_zkp_v3::adapter::ProtocolInfo {
     fn translate(self) -> risc0_zkp_v1::adapter::ProtocolInfo {
         risc0_zkp_v1::adapter::ProtocolInfo(self.0)
     }
@@ -95,6 +119,63 @@ impl Translate<VerificationError> for risc0_zkp_v2::verify::VerificationError {
                 }
             }
             VerificationErrorV2::UnresolvedAssumption { digest } => {
+                VerificationError::UnresolvedAssumption {
+                    digest: digest.translate(),
+                }
+            }
+            _ => unreachable!("unknown VerificationError variant: {:?}", self),
+        }
+    }
+}
+
+impl Translate<VerificationError> for risc0_zkp_v3::verify::VerificationError {
+    fn translate(self) -> VerificationError {
+        use risc0_zkp_v3::verify::VerificationError as VerificationErrorV3;
+        match self {
+            VerificationErrorV3::ReceiptFormatError => VerificationError::ReceiptFormatError,
+            VerificationErrorV3::ControlVerificationError { control_id } => {
+                VerificationError::ControlVerificationError {
+                    control_id: control_id.translate(),
+                }
+            }
+            VerificationErrorV3::ImageVerificationError => {
+                VerificationError::ImageVerificationError
+            }
+            VerificationErrorV3::MerkleQueryOutOfRange { idx, rows } => {
+                VerificationError::MerkleQueryOutOfRange { idx, rows }
+            }
+            VerificationErrorV3::InvalidProof => VerificationError::InvalidProof,
+            VerificationErrorV3::JournalDigestMismatch => VerificationError::JournalDigestMismatch,
+            VerificationErrorV3::ClaimDigestMismatch { expected, received } => {
+                VerificationError::ClaimDigestMismatch {
+                    expected: expected.translate(),
+                    received: received.translate(),
+                }
+            }
+            VerificationErrorV3::UnexpectedExitCode => VerificationError::UnexpectedExitCode,
+            VerificationErrorV3::InvalidHashSuite => VerificationError::InvalidHashSuite,
+            VerificationErrorV3::VerifierParametersMissing => {
+                VerificationError::VerifierParametersMissing
+            }
+            VerificationErrorV3::VerifierParametersMismatch { expected, received } => {
+                VerificationError::VerifierParametersMismatch {
+                    expected: expected.translate(),
+                    received: received.translate(),
+                }
+            }
+            VerificationErrorV3::ProofSystemInfoMismatch { expected, received } => {
+                VerificationError::ProofSystemInfoMismatch {
+                    expected: expected.translate(),
+                    received: received.translate(),
+                }
+            }
+            VerificationErrorV3::CircuitInfoMismatch { expected, received } => {
+                VerificationError::CircuitInfoMismatch {
+                    expected: expected.translate(),
+                    received: received.translate(),
+                }
+            }
+            VerificationErrorV3::UnresolvedAssumption { digest } => {
                 VerificationError::UnresolvedAssumption {
                     digest: digest.translate(),
                 }

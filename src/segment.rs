@@ -197,6 +197,24 @@ impl SegmentReceiptVerifierParameters {
         Self::v2_x::<crate::circuit::v2_3::CircuitImpl>(Default::default())
     }
 
+    fn v3_x<C: risc0_zkp_v3::adapter::CircuitInfo>(_circuit_info: PhantomData<C>) -> Self {
+        let p_info = ProtocolInfo(PROOF_SYSTEM_INFO.0);
+        fn fake_control_id(_hash_name: &str, _po2: usize) -> Option<Digest> {
+            None
+        }
+        Self::from_max_po2(
+            &fake_control_id,
+            DEFAULT_MAX_PO2,
+            p_info,
+            ProtocolInfo(C::CIRCUIT_INFO.0),
+        )
+    }
+
+    /// v3.0 set of parameters used to verify a [SegmentReceipt].
+    pub fn v3_0() -> Self {
+        Self::v3_x::<crate::circuit::v3_0::CircuitImpl>(Default::default())
+    }
+
     fn from_max_po2(
         resolver: &dyn Fn(&str, usize) -> Option<Digest>,
         max_po2: usize,
