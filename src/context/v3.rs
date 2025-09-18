@@ -32,6 +32,7 @@ use risc0_zkp_v1::{
     core::digest::Digest,
     verify::VerificationError,
 };
+use risc0_zkp_v3::adapter::CircuitInfo;
 
 impl<SC: CircuitCoreDefV3, RC: CircuitCoreDefV3> VerifierContext for V3<SC, RC> {
     type HashSuite = HashSuiteV3;
@@ -70,11 +71,11 @@ impl<SC: CircuitCoreDefV3, RC: CircuitCoreDefV3> VerifierContext for V3<SC, RC> 
     }
 
     fn segment_circuit_info(&self) -> ProtocolInfo {
-        ProtocolInfo(*b"RV32IM:v2rev2___")
+        circuit::v3_0::CircuitImpl::CIRCUIT_INFO.translate()
     }
 
     fn succinct_circuit_info(&self) -> ProtocolInfo {
-        ProtocolInfo(*b"RECURSION:rev1v1")
+        circuit::v3_0::recursive::CircuitImpl::CIRCUIT_INFO.translate()
     }
 
     fn succinct_output_size(&self) -> usize {
@@ -352,13 +353,13 @@ impl<SC: CircuitCoreDefV3, RC: CircuitCoreDefV3> V3<SC, RC> {
         ])
     }
 
-    /// Return [V1] with the given map of hash suites.
+    /// Return [V3] with the given map of hash suites.
     pub fn with_suites(mut self, suites: BTreeMap<String, HashSuiteV3>) -> Self {
         self.verifier_parameters.suites = suites;
         self
     }
 
-    /// Return [V1] with the given [SegmentReceiptVerifierParameters] set.
+    /// Return [V3] with the given [SegmentReceiptVerifierParameters] set.
     pub fn with_segment_verifier_parameters(
         mut self,
         params: SegmentReceiptVerifierParameters,
@@ -367,7 +368,7 @@ impl<SC: CircuitCoreDefV3, RC: CircuitCoreDefV3> V3<SC, RC> {
         self
     }
 
-    /// Return [V1] with the given [SuccinctReceiptVerifierParameters] set.
+    /// Return [V3] with the given [SuccinctReceiptVerifierParameters] set.
     pub fn with_succinct_verifier_parameters(
         mut self,
         params: SuccinctReceiptVerifierParameters,
@@ -378,7 +379,7 @@ impl<SC: CircuitCoreDefV3, RC: CircuitCoreDefV3> V3<SC, RC> {
 }
 
 impl V3<circuit::v3_0::CircuitImpl, circuit::v3_0::recursive::CircuitImpl> {
-    /// Create an empty [V3] for any risc0 proof generate for any `2.0.x` vm version.
+    /// Create an empty [V3] for any risc0 proof generate for any `3.0.x` vm version.
     pub fn v3_0() -> Self {
         Self::empty(&circuit::v3_0::CIRCUIT, &circuit::v3_0::recursive::CIRCUIT)
             .with_suites(Self::default_hash_suites())
