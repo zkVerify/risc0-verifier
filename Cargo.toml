@@ -1,6 +1,6 @@
 [package]
 name = "risc0-verifier"
-version = "0.11.0"
+version = "0.12.0"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/HorizenLabs/risc0-verifier"
@@ -19,7 +19,6 @@ risc0-zkp-v3 = { package = "risc0-zkp", version = "3.0.0", default-features = fa
 risc0-binfmt-v1 = { package = "risc0-binfmt", version = "1.2.6", default-features = false }
 risc0-circuit-rv32im-v1 = { package = "risc0-circuit-rv32im", version = "1.2.6", default-features = false }
 risc0-circuit-rv32im-v2 = { package = "risc0-circuit-rv32im", version = "^3.0.0", default-features = false }
-risc0-circuit-rv32im-v4 = { package = "risc0-circuit-rv32im", version = "^4.0.0", default-features = false }
 anyhow = { version = "1.0.95", default-features = false }
 hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
 bytemuck = { version = "1.21.0", default-features = false }

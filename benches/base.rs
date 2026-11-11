@@ -20,7 +20,7 @@ fn main() {
     divan::main();
 }
 
-use risc0_verifier::{v1_2, v2_1, v3_0, Verifier};
+use risc0_verifier::{v1_2, v2_1, v3_0, v3_1, Verifier};
 use utils::*;
 
 mod utils;
@@ -565,6 +565,136 @@ pub mod poseidon2 {
             }
         }
     }
+
+    mod v_3_1 {
+        use super::*;
+
+        fn verifier() -> impl Verifier {
+            v3_1()
+        }
+
+        #[divan::bench]
+        fn verify_16() {
+            let verifier = verifier();
+            let case: Case =
+                read_json("resources/cases/prover_3.1.0/vm_3.1.0/poseidon2_16.json").unwrap();
+            let proof = read_bin(case.receipt_path).unwrap();
+
+            compute(
+                divan::black_box(&verifier),
+                divan::black_box(proof),
+                divan::black_box(case.vk.into()),
+                divan::black_box(case.journal),
+            )
+        }
+
+        #[divan::bench]
+        fn verify_22() {
+            let verifier = verifier();
+            let case: Case =
+                read_json("resources/cases/prover_3.1.0/vm_3.1.0/poseidon2_22.json").unwrap();
+            let proof = read_bin(case.receipt_path).unwrap();
+
+            compute(
+                divan::black_box(&verifier),
+                divan::black_box(proof),
+                divan::black_box(case.vk.into()),
+                divan::black_box(case.journal),
+            )
+        }
+
+        mod single_full_segment {
+            use super::*;
+
+            fn path(po2: u32) -> String {
+                format!("resources/cases/single_full_segment_v3_1/poseidon2_{po2}.json")
+            }
+
+            #[divan::bench]
+            fn verify_16() {
+                let verifier = verifier();
+                let case: Case = read_json(path(16)).unwrap();
+                let proof = read_bin(case.receipt_path).unwrap();
+
+                compute(
+                    divan::black_box(&verifier),
+                    divan::black_box(proof),
+                    divan::black_box(case.vk.into()),
+                    divan::black_box(case.journal),
+                )
+            }
+
+            #[divan::bench]
+            fn verify_17() {
+                let verifier = verifier();
+                let case: Case = read_json(path(17)).unwrap();
+                let proof = read_bin(case.receipt_path).unwrap();
+
+                compute(
+                    divan::black_box(&verifier),
+                    divan::black_box(proof),
+                    divan::black_box(case.vk.into()),
+                    divan::black_box(case.journal),
+                )
+            }
+
+            #[divan::bench]
+            fn verify_18() {
+                let verifier = verifier();
+                let case: Case = read_json(path(18)).unwrap();
+                let proof = read_bin(case.receipt_path).unwrap();
+
+                compute(
+                    divan::black_box(&verifier),
+                    divan::black_box(proof),
+                    divan::black_box(case.vk.into()),
+                    divan::black_box(case.journal),
+                )
+            }
+
+            #[divan::bench]
+            fn verify_19() {
+                let verifier = verifier();
+                let case: Case = read_json(path(19)).unwrap();
+                let proof = read_bin(case.receipt_path).unwrap();
+
+                compute(
+                    divan::black_box(&verifier),
+                    divan::black_box(proof),
+                    divan::black_box(case.vk.into()),
+                    divan::black_box(case.journal),
+                )
+            }
+
+            #[divan::bench]
+            fn verify_20() {
+                let verifier = verifier();
+                let case: Case = read_json(path(20)).unwrap();
+                let proof = read_bin(case.receipt_path).unwrap();
+
+                compute(
+                    divan::black_box(&verifier),
+                    divan::black_box(proof),
+                    divan::black_box(case.vk.into()),
+                    divan::black_box(case.journal),
+                )
+            }
+
+            #[divan::bench]
+            fn verify_21() {
+                let verifier = verifier();
+                let case: Case = read_json(path(21)).unwrap();
+                let proof = read_bin(case.receipt_path).unwrap();
+
+                compute(
+                    divan::black_box(&verifier),
+                    divan::black_box(proof),
+                    divan::black_box(case.vk.into()),
+                    divan::black_box(case.journal),
+                )
+            }
+        }
+    }
 }
 
 pub mod succinct {
@@ -673,6 +803,44 @@ pub mod succinct {
             let verifier = verifier();
             let case: Case =
                 read_json("resources/cases/prover_3.0.0/vm_3.0.0/succinct_22.json").unwrap();
+            let proof = read_bin(case.receipt_path).unwrap();
+
+            compute(
+                divan::black_box(&verifier),
+                divan::black_box(proof),
+                divan::black_box(case.vk.into()),
+                divan::black_box(case.journal),
+            )
+        }
+    }
+
+    mod v_3_1 {
+        use super::*;
+
+        fn verifier() -> impl Verifier {
+            v3_1()
+        }
+
+        #[divan::bench]
+        fn verify_16() {
+            let verifier = verifier();
+            let case: Case =
+                read_json("resources/cases/prover_3.1.0/vm_3.1.0/succinct_16.json").unwrap();
+            let proof = read_bin(case.receipt_path).unwrap();
+
+            compute(
+                divan::black_box(&verifier),
+                divan::black_box(proof),
+                divan::black_box(case.vk.into()),
+                divan::black_box(case.journal),
+            )
+        }
+
+        #[divan::bench]
+        fn verify_22() {
+            let verifier = verifier();
+            let case: Case =
+                read_json("resources/cases/prover_3.1.0/vm_3.1.0/succinct_22.json").unwrap();
             let proof = read_bin(case.receipt_path).unwrap();
 
             compute(

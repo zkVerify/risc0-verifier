@@ -327,6 +327,20 @@ impl SuccinctReceiptVerifierParameters {
                     .translate(),
         }
     }
+
+    /// v3_1 set of parameters used to verify a [SuccinctReceipt].
+    pub fn v3_1() -> Self {
+        use crate::circuit::v3_1::recursive as circuit;
+
+        Self {
+            control_root: circuit::control_id::ALLOWED_CONTROL_ROOT.translate(),
+            inner_control_root: None,
+            proof_system_info: PROOF_SYSTEM_INFO,
+            circuit_info:
+                <circuit::CircuitImpl as risc0_zkp_v3::adapter::CircuitInfo>::CIRCUIT_INFO
+                    .translate(),
+        }
+    }
 }
 
 #[cfg(test)]

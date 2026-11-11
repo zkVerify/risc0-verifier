@@ -98,3 +98,8 @@ pub fn v2_3() -> impl Verifier {
 pub fn v3_0() -> impl Verifier {
     context::v3::V3::v3_0()
 }
+
+/// Returns a `Verifier` for the specified RISC Zero prover 3.1 version.
+pub fn v3_1() -> impl Verifier {
+    context::v3::V3::v3_1()
+}
