@@ -215,6 +215,11 @@ impl SegmentReceiptVerifierParameters {
         Self::v3_x::<crate::circuit::v3_0::CircuitImpl>(Default::default())
     }
 
+    /// v3.1 set of parameters used to verify a [SegmentReceipt].
+    pub fn v3_1() -> Self {
+        Self::v3_x::<crate::circuit::v3_1::CircuitImpl>(Default::default())
+    }
+
     fn from_max_po2(
         resolver: &dyn Fn(&str, usize) -> Option<Digest>,
         max_po2: usize,

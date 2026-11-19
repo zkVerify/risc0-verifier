@@ -25,7 +25,6 @@ use crate::{
 };
 use alloc::{boxed::Box, collections::BTreeMap, string::String};
 use risc0_binfmt_v1::{ExitCode, SystemState};
-use risc0_circuit_rv32im_v4::RV32IM_SEAL_VERSION;
 use risc0_core_v1::field::baby_bear::BabyBear;
 use risc0_zkp_v1::{
     adapter::{ProtocolInfo, PROOF_SYSTEM_INFO},
@@ -34,7 +33,32 @@ use risc0_zkp_v1::{
 };
 use risc0_zkp_v3::adapter::CircuitInfo;
 
-impl<SC: CircuitCoreDefV3, RC: CircuitCoreDefV3> VerifierContext for V3<SC, RC> {
+/// Version specific properties of the rv32im segment circuits verified by [V3].
+pub trait Rv32imCircuitV3: CircuitCoreDefV3 + CircuitInfo {
+    /// The version word expected at the head of every segment seal.
+    const SEAL_VERSION: u32;
+    /// Whether the circuit exposes the `totalCycles` global. When it does, the verifier must
+    /// check that it equals `2^po2`: this is what guarantees that a segment trace contains
+    /// exactly one execution (see GHSA-g6qg-9j8p-7j87 / risc0 3.1.0 release notes).
+    const HAS_TOTAL_CYCLES: bool;
+}
+
+impl Rv32imCircuitV3 for circuit::v3_0::CircuitImpl {
+    const SEAL_VERSION: u32 = 2;
+    const HAS_TOTAL_CYCLES: bool = false;
+}
+
+impl Rv32imCircuitV3 for circuit::v3_1::CircuitImpl {
+    const SEAL_VERSION: u32 = 3;
+    const HAS_TOTAL_CYCLES: bool = true;
+}
+
+/// Recursion circuits verified by [V3].
+pub trait RecursionCircuitV3: CircuitCoreDefV3 + CircuitInfo {}
+
+impl<T: CircuitCoreDefV3 + CircuitInfo> RecursionCircuitV3 for T {}
+
+impl<SC: Rv32imCircuitV3, RC: RecursionCircuitV3> VerifierContext for V3<SC, RC> {
     type HashSuite = HashSuiteV3;
     type Segment = SegmentV3;
     type Succinct = SuccinctV3;
@@ -58,8 +82,9 @@ impl<SC: CircuitCoreDefV3, RC: CircuitCoreDefV3> VerifierContext for V3<SC, RC> 
     }
 
     fn boxed_succinct_verifier_with_control_root(&self, control_root: Digest) -> BoxedVC<Self> {
+        // Assumptions must be verified with the same recursion circuit of this context.
         Box::new(
-            V3::empty(&circuit::v3_0::CIRCUIT, &circuit::v3_0::recursive::CIRCUIT)
+            V3::empty(self.circuit, self.recursive_circuit)
                 .with_suites(self.verifier_parameters.suites.clone())
                 .with_succinct_verifier_parameters(SuccinctReceiptVerifierParameters {
                     control_root,
@@ -71,11 +96,11 @@ impl<SC: CircuitCoreDefV3, RC: CircuitCoreDefV3> VerifierContext for V3<SC, RC> 
     }
 
     fn segment_circuit_info(&self) -> ProtocolInfo {
-        circuit::v3_0::CircuitImpl::CIRCUIT_INFO.translate()
+        SC::CIRCUIT_INFO.translate()
     }
 
     fn succinct_circuit_info(&self) -> ProtocolInfo {
-        circuit::v3_0::recursive::CircuitImpl::CIRCUIT_INFO.translate()
+        RC::CIRCUIT_INFO.translate()
     }
 
     fn succinct_output_size(&self) -> usize {
@@ -83,7 +108,7 @@ impl<SC: CircuitCoreDefV3, RC: CircuitCoreDefV3> VerifierContext for V3<SC, RC> 
     }
 
     fn decode_from_seal(&self, seal: &[u32]) -> Result<ReceiptClaim, VerificationError> {
-        decode_from_seal(seal, None)
+        decode_from_seal::<SC>(seal)
     }
 
     fn verify_segment(
@@ -97,14 +122,19 @@ impl<SC: CircuitCoreDefV3, RC: CircuitCoreDefV3> VerifierContext for V3<SC, RC> 
             .suite(hashfn)
             .ok_or(VerificationError::InvalidHashSuite)?;
 
-        // We don't have a `code' buffer to verify.
-        let check_code_fn = |_: u32, _: &risc0_zkp_v3::core::digest::Digest| Ok(());
-
-        if seal[0] != RV32IM_SEAL_VERSION {
+        if seal.first() != Some(&SC::SEAL_VERSION) {
             return Err(VerificationError::ReceiptFormatError);
         }
 
         let seal = &seal[1..];
+
+        // We don't have a `code' buffer to verify, but (when the circuit exposes it) we use this
+        // callback, which receives the po2 of the trace as read from the seal, to check the
+        // `totalCycles` global. The circuit constrains the row preceding each first-cycle row
+        // (circularly) to have cycle number `totalCycles - 1`, so requiring
+        // `totalCycles == 2^po2` ensures that the trace contains exactly one execution.
+        let check_code_fn =
+            |po2: u32, _: &risc0_zkp_v3::core::digest::Digest| check_total_cycles::<SC>(seal, po2);
 
         risc0_zkp_v3::verify::verify(self.circuit, suite, seal, check_code_fn)
             .map_err(Translate::translate)
@@ -173,29 +203,140 @@ impl<SC: CircuitCoreDefV3, RC: CircuitCoreDefV3> VerifierContext for V3<SC, RC> 
     }
 }
 
-fn decode_from_seal(seal: &[u32], _po2: Option<u32>) -> Result<ReceiptClaim, VerificationError> {
-    let claim = risc0_circuit_rv32im_v4::Rv32imV2Claim::decode(seal)
-        .map_err(|_e| VerificationError::InvalidProof)?;
-    log::debug!("claim: {claim:#?}");
+/// Check the `totalCycles` global against the trace size (`2^po2`) read from the seal (header
+/// removed). It's a no-op for circuits that don't expose this global.
+fn check_total_cycles<SC: Rv32imCircuitV3>(
+    seal: &[u32],
+    po2: u32,
+) -> Result<(), risc0_zkp_v3::verify::VerificationError> {
+    use risc0_zkp_v3::verify::VerificationError as VerificationErrorV3;
+    if !SC::HAS_TOTAL_CYCLES {
+        return Ok(());
+    }
+    let total_cycles = globals::<SC>(seal)
+        .and_then(|g| g.u32_at(rv32im_layout::TOTAL_CYCLES))
+        .map_err(|_| VerificationErrorV3::ReceiptFormatError)?;
+    let expected = 1u32
+        .checked_shl(po2)
+        .ok_or(VerificationErrorV3::ReceiptFormatError)?;
+    if total_cycles != expected {
+        log::debug!("totalCycles global ({total_cycles}) != 2^po2 ({expected})");
+        return Err(VerificationErrorV3::InvalidProof);
+    }
+    Ok(())
+}
 
-    let exit_code = exit_code_from_rv32im_v4_claim(&claim)?;
+/// Offsets of the rv32im (v2 circuit) global registers in the segment seal outputs. They are
+/// the same for the `3.0` (`RV32IM:v2rev2`) and the `3.1` (`RV32IM:v2rev3`) circuits: `3.1`
+/// just appends the `totalCycles` global. Taken from `LAYOUT_GLOBAL` in the zirgen generated
+/// `layout.rs.inc` of `risc0-circuit-rv32im` `4.0.x` and `4.1.0`.
+mod rv32im_layout {
+    pub const INPUT: usize = 0;
+    pub const IS_TERMINATE: usize = 16;
+    pub const OUTPUT: usize = 17;
+    pub const SHUTDOWN_CYCLE: usize = 53;
+    pub const STATE_IN: usize = 54;
+    pub const STATE_OUT: usize = 70;
+    pub const TERM_A0_HIGH: usize = 86;
+    pub const TERM_A0_LOW: usize = 87;
+    pub const TERM_A1_HIGH: usize = 88;
+    pub const TERM_A1_LOW: usize = 89;
+    /// Only available from `RV32IM:v2rev3` (risc0 `3.1`).
+    pub const TOTAL_CYCLES: usize = 90;
+    /// Number of 16 bits shorts that compose a digest.
+    pub const DIGEST_SHORTS: usize = 16;
+}
+
+/// The global registers of a segment seal (header removed), decoded from their Montgomery form.
+struct Globals<'a>(&'a [risc0_core_v3::field::baby_bear::BabyBearElem]);
+
+fn globals<SC: Rv32imCircuitV3>(seal: &[u32]) -> Result<Globals<'_>, VerificationError> {
+    let io = seal
+        .get(..SC::OUTPUT_SIZE)
+        .ok_or(VerificationError::ReceiptFormatError)?;
+    bytemuck::checked::try_cast_slice(io)
+        .map(Globals)
+        .map_err(|_| VerificationError::ReceiptFormatError)
+}
+
+impl Globals<'_> {
+    fn u32_at(&self, offset: usize) -> Result<u32, VerificationError> {
+        self.0
+            .get(offset)
+            .map(|e| e.as_u32())
+            .ok_or(VerificationError::ReceiptFormatError)
+    }
+
+    fn u16_at(&self, offset: usize) -> Result<u16, VerificationError> {
+        u16::try_from(self.u32_at(offset)?).map_err(|_| VerificationError::ReceiptFormatError)
+    }
+
+    /// Read a digest encoded as 16 little endian 16 bits shorts.
+    fn digest_at(&self, offset: usize) -> Result<Digest, VerificationError> {
+        let mut words = [0u32; risc0_zkp_v1::core::digest::DIGEST_WORDS];
+        for (i, w) in words.iter_mut().enumerate() {
+            let low = self.u16_at(offset + 2 * i)? as u32;
+            let high = self.u16_at(offset + 2 * i + 1)? as u32;
+            *w = low | (high << 16);
+        }
+        debug_assert_eq!(2 * words.len(), rv32im_layout::DIGEST_SHORTS);
+        Ok(Digest::new(words))
+    }
+}
+
+fn decode_from_seal<SC: Rv32imCircuitV3>(seal: &[u32]) -> Result<ReceiptClaim, VerificationError> {
+    use rv32im_layout::*;
+    if seal.first() != Some(&SC::SEAL_VERSION) {
+        return Err(VerificationError::InvalidProof);
+    }
+    let global = globals::<SC>(&seal[1..]).map_err(|_| VerificationError::InvalidProof)?;
+
+    // NOTE: rng and povw are not read from the globals here. Neither need to be checked to
+    // establish the integrity of the claim.
+    let pre_state = global.digest_at(STATE_IN)?;
+    let post_state = global.digest_at(STATE_OUT)?;
+    let input = global.digest_at(INPUT)?;
+    let output = global.digest_at(OUTPUT)?;
+    let is_terminate = global.u32_at(IS_TERMINATE)? == 1;
+    // Read anyway to keep the same validation of the reference implementation.
+    let _shutdown_cycle = global.u32_at(SHUTDOWN_CYCLE)?;
+
+    let exit_code = if is_terminate {
+        let user_exit = global.u16_at(TERM_A0_HIGH)?;
+        let halt_type = global.u16_at(TERM_A0_LOW)?;
+        // Validated even if not used in the claim.
+        global.u16_at(TERM_A1_HIGH)?;
+        global.u16_at(TERM_A1_LOW)?;
+        match halt_type as u32 {
+            halt::TERMINATE => ExitCode::Halted(user_exit as u32),
+            halt::PAUSE => ExitCode::Paused(user_exit as u32),
+            _ => {
+                log::debug!("Illegal halt type: {halt_type}");
+                return Err(VerificationError::InvalidProof);
+            }
+        }
+    } else {
+        ExitCode::SystemSplit
+    };
+    let output = if is_terminate { output } else { Digest::ZERO };
+
     let post_state = match exit_code {
         ExitCode::Halted(_) => Digest::ZERO,
-        _ => claim.post_state.translate(),
+        _ => post_state,
     };
 
     Ok(ReceiptClaim {
         pre: MaybePruned::Value(SystemState {
             pc: 0,
-            merkle_root: claim.pre_state.translate(),
+            merkle_root: pre_state,
         }),
         post: MaybePruned::Value(SystemState {
             pc: 0,
             merkle_root: post_state,
         }),
         exit_code,
-        input: MaybePruned::Pruned(claim.input.translate()),
-        output: MaybePruned::Pruned(claim.output.unwrap_or_default().translate()),
+        input: MaybePruned::Pruned(input),
+        output: MaybePruned::Pruned(output),
     })
 }
 
@@ -206,44 +347,53 @@ pub mod halt {
     pub const SPLIT: u32 = 2;
 }
 
-fn exit_code_from_rv32im_v4_claim(
-    claim: &risc0_circuit_rv32im_v4::Rv32imV2Claim,
-) -> Result<ExitCode, VerificationError> {
-    let exit_code = if let Some(term) = claim.terminate_state {
-        let risc0_circuit_rv32im_v4::HighLowU16(user_exit, halt_type) = term.a0;
-        match halt_type as u32 {
-            halt::TERMINATE => ExitCode::Halted(user_exit as u32),
-            halt::PAUSE => ExitCode::Paused(user_exit as u32),
-            _ => panic!("Illegal halt type: {halt_type}"),
-        }
-    } else {
-        ExitCode::SystemSplit
-    };
-    Ok(exit_code)
+/// Segment circuit info of a [V3] context.
+#[derive(Clone, Copy)]
+pub struct SegmentV3 {
+    protocol: ProtocolInfo,
+    size: usize,
 }
 
-#[derive(Default, Clone, Copy)]
-pub struct SegmentV3;
+impl SegmentV3 {
+    fn new<SC: Rv32imCircuitV3>() -> Self {
+        Self {
+            protocol: SC::CIRCUIT_INFO.translate(),
+            size: SC::OUTPUT_SIZE,
+        }
+    }
+}
 
 impl crate::context::CircuitInfo for SegmentV3 {
     fn protocol(&self) -> ProtocolInfo {
-        <circuit::v3_0::CircuitImpl as risc0_zkp_v3::adapter::CircuitInfo>::CIRCUIT_INFO.translate()
+        self.protocol
     }
     fn size(&self) -> usize {
-        <circuit::v3_0::CircuitImpl as risc0_zkp_v3::adapter::CircuitInfo>::OUTPUT_SIZE
+        self.size
     }
 }
 
-#[derive(Default, Clone, Copy)]
-pub struct SuccinctV3;
+/// Succinct (recursion) circuit info of a [V3] context.
+#[derive(Clone, Copy)]
+pub struct SuccinctV3 {
+    protocol: ProtocolInfo,
+    size: usize,
+}
+
+impl SuccinctV3 {
+    fn new<RC: RecursionCircuitV3>() -> Self {
+        Self {
+            protocol: RC::CIRCUIT_INFO.translate(),
+            size: RC::OUTPUT_SIZE,
+        }
+    }
+}
 
 impl crate::context::CircuitInfo for SuccinctV3 {
     fn protocol(&self) -> ProtocolInfo {
-        <circuit::v3_0::recursive::CircuitImpl as risc0_zkp_v3::adapter::CircuitInfo>::CIRCUIT_INFO
-            .translate()
+        self.protocol
     }
     fn size(&self) -> usize {
-        <circuit::v3_0::recursive::CircuitImpl as risc0_zkp_v3::adapter::CircuitInfo>::OUTPUT_SIZE
+        self.size
     }
 }
 
@@ -252,7 +402,7 @@ pub type HashSuiteV3 =
     risc0_zkp_v3::core::hash::HashSuite<risc0_core_v3::field::baby_bear::BabyBear>;
 pub type HashFnV3 = dyn risc0_zkp_v3::core::hash::HashFn<risc0_core_v3::field::baby_bear::BabyBear>;
 
-pub struct V3<SC: CircuitCoreDefV3, RC: CircuitCoreDefV3> {
+pub struct V3<SC: Rv32imCircuitV3, RC: RecursionCircuitV3> {
     verifier_parameters: VerifierParametersV3,
 
     circuit: &'static SC,
@@ -260,14 +410,14 @@ pub struct V3<SC: CircuitCoreDefV3, RC: CircuitCoreDefV3> {
     recursive_circuit: &'static RC,
 }
 
-impl Default for VerifierParametersV3 {
-    fn default() -> Self {
+impl VerifierParametersV3 {
+    fn new<SC: Rv32imCircuitV3, RC: RecursionCircuitV3>() -> Self {
         Self {
             succinct_verifier_parameters: None,
             suites: BTreeMap::new(),
             segment_verifier_parameters: None,
-            segment: SegmentV3,
-            succinct: SuccinctV3,
+            segment: SegmentV3::new::<SC>(),
+            succinct: SuccinctV3::new::<RC>(),
         }
     }
 }
@@ -325,11 +475,11 @@ impl risc0_zkp_v1::core::hash::HashFn<BabyBear> for HashFnWrapper<'_> {
     }
 }
 
-impl<SC: CircuitCoreDefV3, RC: CircuitCoreDefV3> V3<SC, RC> {
+impl<SC: Rv32imCircuitV3, RC: RecursionCircuitV3> V3<SC, RC> {
     /// Create an empty [V3].
     pub fn empty(circuit: &'static SC, recursive_circuit: &'static RC) -> Self {
         Self {
-            verifier_parameters: Default::default(),
+            verifier_parameters: VerifierParametersV3::new::<SC, RC>(),
             circuit,
             recursive_circuit,
         }
@@ -385,5 +535,112 @@ impl V3<circuit::v3_0::CircuitImpl, circuit::v3_0::recursive::CircuitImpl> {
             .with_suites(Self::default_hash_suites())
             .with_segment_verifier_parameters(SegmentReceiptVerifierParameters::v3_0())
             .with_succinct_verifier_parameters(SuccinctReceiptVerifierParameters::v3_0())
+    }
+}
+
+impl V3<circuit::v3_1::CircuitImpl, circuit::v3_1::recursive::CircuitImpl> {
+    /// Create an empty [V3] for any risc0 proof generate for any `3.1.x` vm version.
+    pub fn v3_1() -> Self {
+        Self::empty(&circuit::v3_1::CIRCUIT, &circuit::v3_1::recursive::CIRCUIT)
+            .with_suites(Self::default_hash_suites())
+            .with_segment_verifier_parameters(SegmentReceiptVerifierParameters::v3_1())
+            .with_succinct_verifier_parameters(SuccinctReceiptVerifierParameters::v3_1())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use risc0_core_v3::field::baby_bear::BabyBearElem;
+    use risc0_zkp_v3::verify::VerificationError as VerificationErrorV3;
+
+    fn globals_with_total_cycles(output_size: usize, total_cycles: u32) -> alloc::vec::Vec<u32> {
+        let mut seal = alloc::vec![BabyBearElem::new(0).as_u32_montgomery(); output_size + 10];
+        if rv32im_layout::TOTAL_CYCLES < output_size {
+            seal[rv32im_layout::TOTAL_CYCLES] = BabyBearElem::new(total_cycles).as_u32_montgomery();
+        }
+        seal
+    }
+
+    #[test]
+    fn v3_1_accepts_total_cycles_equal_to_trace_size() {
+        for po2 in 14..=24 {
+            let seal = globals_with_total_cycles(91, 1 << po2);
+            assert_eq!(
+                Ok(()),
+                check_total_cycles::<circuit::v3_1::CircuitImpl>(&seal, po2)
+            );
+        }
+    }
+
+    #[test]
+    fn v3_1_rejects_total_cycles_different_from_trace_size() {
+        for (total_cycles, po2) in [
+            (1 << 16, 17),
+            (1 << 17, 16),
+            ((1 << 20) + 1, 20),
+            (2 << 20, 20),
+            (0, 20),
+        ] {
+            let seal = globals_with_total_cycles(91, total_cycles);
+            assert_eq!(
+                Err(VerificationErrorV3::InvalidProof),
+                check_total_cycles::<circuit::v3_1::CircuitImpl>(&seal, po2),
+                "total_cycles = {total_cycles}, po2 = {po2}"
+            );
+        }
+    }
+
+    #[test]
+    fn v3_1_rejects_too_short_or_malformed_seal() {
+        assert_eq!(
+            Err(VerificationErrorV3::ReceiptFormatError),
+            check_total_cycles::<circuit::v3_1::CircuitImpl>(&[0; 90], 16)
+        );
+        // Not a valid BabyBear element
+        let mut seal = globals_with_total_cycles(91, 1 << 16);
+        seal[rv32im_layout::TOTAL_CYCLES] = u32::MAX;
+        assert_eq!(
+            Err(VerificationErrorV3::ReceiptFormatError),
+            check_total_cycles::<circuit::v3_1::CircuitImpl>(&seal, 16)
+        );
+        // po2 overflow
+        let seal = globals_with_total_cycles(91, 1 << 16);
+        assert_eq!(
+            Err(VerificationErrorV3::ReceiptFormatError),
+            check_total_cycles::<circuit::v3_1::CircuitImpl>(&seal, 32)
+        );
+    }
+
+    #[test]
+    fn v3_0_does_not_check_total_cycles() {
+        let seal = globals_with_total_cycles(90, 0);
+        assert_eq!(
+            Ok(()),
+            check_total_cycles::<circuit::v3_0::CircuitImpl>(&seal, 20)
+        );
+    }
+
+    #[test]
+    fn decode_rejects_wrong_seal_version() {
+        let mut seal = alloc::vec![3u32];
+        seal.extend(globals_with_total_cycles(91, 1 << 16));
+        assert!(decode_from_seal::<circuit::v3_1::CircuitImpl>(&seal).is_ok());
+        assert!(decode_from_seal::<circuit::v3_0::CircuitImpl>(&seal).is_err());
+        seal[0] = 2;
+        assert!(decode_from_seal::<circuit::v3_1::CircuitImpl>(&seal).is_err());
+        assert!(decode_from_seal::<circuit::v3_0::CircuitImpl>(&seal).is_ok());
+    }
+
+    #[test]
+    fn decode_rejects_illegal_halt_type() {
+        let mut seal = alloc::vec![3u32];
+        seal.extend(globals_with_total_cycles(91, 1 << 16));
+        seal[1 + rv32im_layout::IS_TERMINATE] = BabyBearElem::new(1).as_u32_montgomery();
+        seal[1 + rv32im_layout::TERM_A0_LOW] = BabyBearElem::new(2).as_u32_montgomery();
+        assert_eq!(
+            Err(VerificationError::InvalidProof),
+            decode_from_seal::<circuit::v3_1::CircuitImpl>(&seal).map(|_| ())
+        );
     }
 }
